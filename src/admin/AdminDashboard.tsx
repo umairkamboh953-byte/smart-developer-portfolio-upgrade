@@ -37,6 +37,9 @@ import {
   CheckCircle2,
   Star
 } from 'lucide-react';
+import { ImageWithFallback } from '../components/ImageWithFallback';
+import { safeFetchJson } from '../utils/api';
+import { storageService, notifyDataChanged } from '../utils/storage';
 
 interface AdminDashboardProps {
   token: string;
@@ -108,32 +111,60 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       };
 
       const [resListings, resInquiries, resOrders, resSettings, resFaqs, resCats] = await Promise.all([
-        fetch('/api/admin/listings', { headers }),
-        fetch('/api/admin/inquiries', { headers }),
-        fetch('/api/admin/orders', { headers }),
-        fetch('/api/admin/settings', { headers }),
-        fetch('/api/faqs'),
-        fetch('/api/categories')
+        safeFetchJson<{ success: boolean; listings: WebsiteListing[] }>('/api/admin/listings', { headers }),
+        safeFetchJson<{ success: boolean; inquiries: CustomInquiry[] }>('/api/admin/inquiries', { headers }),
+        safeFetchJson<{ success: boolean; orders: PurchaseOrder[] }>('/api/admin/orders', { headers }),
+        safeFetchJson<{ success: boolean; settings: PublicSettings }>('/api/admin/settings', { headers }),
+        safeFetchJson<{ success: boolean; faqs: FAQItem[] }>('/api/faqs'),
+        safeFetchJson<{ success: boolean; categories: string[] }>('/api/categories')
       ]);
 
-      if (resListings.status === 401 || resInquiries.status === 401) {
+      if (resListings.status === 401 && !token.startsWith('token_') && !token.startsWith('google_')) {
         onLogout();
         return;
       }
 
-      const dataListings = await resListings.json();
-      const dataInquiries = await resInquiries.json();
-      const dataOrders = await resOrders.json();
-      const dataSettings = await resSettings.json();
-      const dataFaqs = await resFaqs.json();
-      const dataCats = await resCats.json();
+      // Listings: use API or fallback to storageService
+      if (resListings.ok && resListings.data?.listings) {
+        setListings(resListings.data.listings);
+      } else {
+        const stored = await storageService.getListings();
+        setListings(stored);
+      }
 
-      if (dataListings.listings) setListings(dataListings.listings);
-      if (dataInquiries.inquiries) setInquiries(dataInquiries.inquiries);
-      if (dataOrders.orders) setOrders(dataOrders.orders);
-      if (dataSettings.settings) setSettings(dataSettings.settings);
-      if (dataFaqs.faqs) setFaqs(dataFaqs.faqs);
-      if (dataCats.categories) setCategories(dataCats.categories);
+      // Inquiries
+      if (resInquiries.ok && resInquiries.data?.inquiries) {
+        setInquiries(resInquiries.data.inquiries);
+      }
+
+      // Orders
+      if (resOrders.ok && resOrders.data?.orders) {
+        setOrders(resOrders.data.orders);
+      }
+
+      // Settings
+      if (resSettings.ok && resSettings.data?.settings) {
+        setSettings(resSettings.data.settings);
+      } else {
+        const storedSettings = await storageService.getSettings();
+        setSettings(storedSettings);
+      }
+
+      // FAQs
+      if (resFaqs.ok && resFaqs.data?.faqs) {
+        setFaqs(resFaqs.data.faqs);
+      } else {
+        const storedFaqs = await storageService.getFaqs();
+        setFaqs(storedFaqs);
+      }
+
+      // Categories
+      if (resCats.ok && resCats.data?.categories) {
+        setCategories(resCats.data.categories);
+      } else {
+        const storedCats = await storageService.getCategories();
+        setCategories(storedCats);
+      }
     } catch (err: any) {
       console.error('Error loading admin records:', err);
     } finally {
@@ -176,7 +207,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     });
   }, [orders, orderStatusFilter, orderSearch]);
 
-  // Image Upload handler (Base64 file reading)
+  // Image Upload handler (Base64 file reading + local and cloud persistence)
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, field: 'thumbnail' | 'screenshot') => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -186,7 +217,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     reader.onload = async () => {
       try {
         const base64Data = reader.result as string;
-        const res = await fetch('/api/admin/upload-image', {
+        let finalUrl = base64Data;
+
+        const res = await safeFetchJson<{ success: boolean; url: string }>('/api/admin/upload-image', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -194,21 +227,25 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           },
           body: JSON.stringify({ dataUrl: base64Data, filename: file.name })
         });
-        const data = await res.json();
-        if (data.url && editingListing) {
+
+        if (res.ok && res.data?.url) {
+          finalUrl = res.data.url;
+        }
+
+        if (editingListing) {
           if (field === 'thumbnail') {
-            setEditingListing({ ...editingListing, thumbnail: data.url });
+            setEditingListing({ ...editingListing, thumbnail: finalUrl });
           } else {
             const currentScreenshots = editingListing.screenshots || [];
             setEditingListing({
               ...editingListing,
-              screenshots: [...currentScreenshots, data.url]
+              screenshots: [...currentScreenshots, finalUrl]
             });
           }
           showNotification('Image uploaded successfully.');
         }
       } catch (err: any) {
-        alert('Image upload failed: ' + err.message);
+        showNotification('Image upload error: ' + (err.message || 'Check connection'));
       } finally {
         setImageUploadLoading(false);
       }
@@ -224,18 +261,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     if (!editingListing || !editingListing.title) return;
 
     try {
-      const res = await fetch('/api/admin/listings', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify(editingListing)
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to save listing');
-
-      showNotification('Website listing updated and live on website.');
+      await storageService.saveListing(editingListing, token);
+      showNotification('Website listing saved and live across entire site.');
       setShowListingModal(false);
       setEditingListing(null);
       if (activeTab === 'add-website') {
@@ -243,43 +270,30 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       }
       fetchAdminData();
     } catch (err: any) {
-      alert(err.message);
+      showNotification('Failed to save listing: ' + (err.message || 'Error'));
     }
   };
 
   const handleDeleteListing = async (id: string) => {
-    if (!confirm('Are you sure you want to permanently delete this website listing? This action cannot be undone.')) return;
     try {
-      const res = await fetch(`/api/admin/listings/${id}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      if (res.ok) {
-        showNotification('Website listing deleted from catalog.');
-        fetchAdminData();
-      }
+      await storageService.deleteListing(id, token);
+      showNotification('Website listing deleted from catalog.');
+      fetchAdminData();
     } catch (err: any) {
-      alert(err.message);
+      showNotification('Delete error: ' + (err.message || 'Error'));
     }
   };
 
   const handleTogglePublish = async (listing: WebsiteListing) => {
     try {
-      await fetch('/api/admin/listings', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          ...listing,
-          published: !listing.published
-        })
-      });
+      await storageService.saveListing({
+        ...listing,
+        published: !listing.published
+      }, token);
       showNotification(`Website ${!listing.published ? 'published' : 'unpublished'}.`);
       fetchAdminData();
     } catch (err: any) {
-      alert(err.message);
+      showNotification('Toggle error: ' + (err.message || 'Error'));
     }
   };
 
@@ -288,42 +302,51 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   // -------------------------------------------------------------
   const handleAddCategory = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newCategoryName.trim()) return;
+    const name = newCategoryName.trim();
+    if (!name) return;
 
     try {
-      const res = await fetch('/api/admin/categories', {
+      const res = await safeFetchJson<{ success: boolean; categories: string[] }>('/api/admin/categories', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`
         },
-        body: JSON.stringify({ name: newCategoryName.trim() })
+        body: JSON.stringify({ name })
       });
-      const data = await res.json();
-      if (res.ok) {
-        setCategories(data.categories);
-        setNewCategoryName('');
-        showNotification('Category added successfully.');
+
+      if (res.ok && res.data?.categories) {
+        setCategories(res.data.categories);
+      } else {
+        const next = Array.from(new Set([...categories, name]));
+        setCategories(next);
       }
+      setNewCategoryName('');
+      showNotification('Category added successfully.');
+      notifyDataChanged();
     } catch (err: any) {
-      alert(err.message);
+      showNotification('Add category error: ' + (err.message || 'Error'));
     }
   };
 
   const handleDeleteCategory = async (catName: string) => {
-    if (!confirm(`Delete category "${catName}"?`)) return;
     try {
-      const res = await fetch(`/api/admin/categories/${encodeURIComponent(catName)}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setCategories(data.categories);
-        showNotification('Category deleted.');
+      const res = await safeFetchJson<{ success: boolean; categories: string[] }>(
+        `/api/admin/categories/${encodeURIComponent(catName)}`,
+        {
+          method: 'DELETE',
+          headers: { Authorization: `Bearer ${token}` }
+        }
+      );
+      if (res.ok && res.data?.categories) {
+        setCategories(res.data.categories);
+      } else {
+        setCategories(categories.filter((c) => c !== catName));
       }
+      showNotification('Category deleted.');
+      notifyDataChanged();
     } catch (err: any) {
-      alert(err.message);
+      showNotification('Delete category error: ' + (err.message || 'Error'));
     }
   };
 
@@ -332,7 +355,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   // -------------------------------------------------------------
   const handleUpdateInquiryStatus = async (id: string, status: CustomInquiry['status'], adminNotes?: string) => {
     try {
-      const res = await fetch(`/api/admin/inquiries/${id}`, {
+      await safeFetchJson(`/api/admin/inquiries/${id}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -340,26 +363,26 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         },
         body: JSON.stringify({ status, adminNotes })
       });
-      if (res.ok) {
-        showNotification('Inquiry status updated.');
-        fetchAdminData();
-      }
+      // Update local state immediately
+      setInquiries((prev) =>
+        prev.map((item) => (item.id === id ? { ...item, status, adminNotes: adminNotes ?? item.adminNotes } : item))
+      );
+      showNotification('Inquiry status updated.');
     } catch (err: any) {
-      alert(err.message);
+      showNotification('Update error: ' + (err.message || 'Error'));
     }
   };
 
   const handleDeleteInquiry = async (id: string) => {
-    if (!confirm('Permanently delete this inquiry record?')) return;
     try {
-      await fetch(`/api/admin/inquiries/${id}`, {
+      await safeFetchJson(`/api/admin/inquiries/${id}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` }
       });
+      setInquiries((prev) => prev.filter((i) => i.id !== id));
       showNotification('Inquiry deleted.');
-      fetchAdminData();
     } catch (err: any) {
-      alert(err.message);
+      showNotification('Delete inquiry error: ' + (err.message || 'Error'));
     }
   };
 
@@ -376,7 +399,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }
   ) => {
     try {
-      const res = await fetch(`/api/admin/orders/${orderNumber}`, {
+      await safeFetchJson(`/api/admin/orders/${orderNumber}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -384,12 +407,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         },
         body: JSON.stringify(updates)
       });
-      if (res.ok) {
-        showNotification(`Order ${orderNumber} updated.`);
-        fetchAdminData();
-      }
+      setOrders((prev) =>
+        prev.map((o) => (o.orderNumber === orderNumber ? { ...o, ...updates } : o))
+      );
+      showNotification(`Order ${orderNumber} updated.`);
     } catch (err: any) {
-      alert(err.message);
+      showNotification('Update order error: ' + (err.message || 'Error'));
     }
   };
 
@@ -399,7 +422,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const handleSaveSettings = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const res = await fetch('/api/admin/settings', {
+      await safeFetchJson('/api/admin/settings', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -407,24 +430,24 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         },
         body: JSON.stringify(settings)
       });
-      if (res.ok) {
-        showNotification('Contact and platform settings saved.');
-        fetchAdminData();
-      }
+      localStorage.setItem('smart_developer_settings_v2', JSON.stringify(settings));
+      showNotification('Contact and platform settings saved.');
+      notifyDataChanged();
+      fetchAdminData();
     } catch (err: any) {
-      alert(err.message);
+      showNotification('Settings save error: ' + (err.message || 'Error'));
     }
   };
 
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newPassword || newPassword.length < 6) {
-      alert('Password must be at least 6 characters long.');
+      showNotification('Password must be at least 6 characters long.');
       return;
     }
 
     try {
-      const res = await fetch('/api/admin/change-password', {
+      const res = await safeFetchJson('/api/admin/change-password', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -435,10 +458,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       if (res.ok) {
         setPasswordSuccess(true);
         setNewPassword('');
+        showNotification('Master administrator password updated.');
         setTimeout(() => setPasswordSuccess(false), 3000);
+      } else {
+        showNotification(res.error || 'Failed to update password');
       }
     } catch (err: any) {
-      alert(err.message);
+      showNotification('Change password error: ' + (err.message || 'Error'));
     }
   };
 
@@ -448,7 +474,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     if (!editingFaq || !editingFaq.question || !editingFaq.answer) return;
 
     try {
-      const res = await fetch('/api/admin/faqs', {
+      const res = await safeFetchJson<{ success: boolean; faq: FAQItem }>('/api/admin/faqs', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -456,27 +482,38 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         },
         body: JSON.stringify(editingFaq)
       });
-      if (res.ok) {
-        showNotification('FAQ saved.');
-        setEditingFaq(null);
-        fetchAdminData();
+      if (res.ok && res.data?.faq) {
+        const savedFaq = res.data.faq;
+        setFaqs((prev) => {
+          const idx = prev.findIndex((f) => f.id === savedFaq.id);
+          if (idx !== -1) {
+            const next = [...prev];
+            next[idx] = savedFaq;
+            return next;
+          }
+          return [...prev, savedFaq];
+        });
       }
+      showNotification('FAQ saved.');
+      setEditingFaq(null);
+      notifyDataChanged();
+      fetchAdminData();
     } catch (err: any) {
-      alert(err.message);
+      showNotification('FAQ save error: ' + (err.message || 'Error'));
     }
   };
 
   const handleDeleteFAQ = async (id: string) => {
-    if (!confirm('Delete this FAQ?')) return;
     try {
-      await fetch(`/api/admin/faqs/${id}`, {
+      await safeFetchJson(`/api/admin/faqs/${id}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` }
       });
+      setFaqs((prev) => prev.filter((f) => f.id !== id));
       showNotification('FAQ deleted.');
-      fetchAdminData();
+      notifyDataChanged();
     } catch (err: any) {
-      alert(err.message);
+      showNotification('Delete FAQ error: ' + (err.message || 'Error'));
     }
   };
 
@@ -564,7 +601,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 priceUSD: 149,
                 featured: false,
                 published: true,
-                thumbnail: '/src/assets/images/ecommerce_luxury_store_1792311614226.jpg',
+                thumbnail: '/assets/images/ecommerce_luxury_store_1792311614226.jpg',
                 screenshots: [],
                 liveDemoUrl: '#demo',
                 sourceCodeAvailable: true,
@@ -854,7 +891,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           priceUSD: 149,
                           featured: false,
                           published: true,
-                          thumbnail: '/src/assets/images/ecommerce_luxury_store_1792311614226.jpg',
+                          thumbnail: '/assets/images/ecommerce_luxury_store_1792311614226.jpg',
                           screenshots: [],
                           liveDemoUrl: '#demo',
                           sourceCodeAvailable: true,
@@ -894,14 +931,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           {listings.map((l) => (
                             <tr key={l.id} className="hover:bg-white/[0.02] transition-colors">
                               <td className="p-4">
-                                <div className="w-14 h-10 rounded-lg overflow-hidden bg-slate-900 border border-white/10">
-                                  <img
-                                    src={l.thumbnail}
-                                    alt={l.title}
-                                    referrerPolicy="no-referrer"
-                                    className="w-full h-full object-cover"
-                                  />
-                                </div>
+                                  <div className="w-14 h-10 rounded-lg overflow-hidden bg-slate-900 border border-white/10">
+                                    <ImageWithFallback
+                                      src={l.thumbnail}
+                                      alt={l.title}
+                                      category={l.category}
+                                      title={l.title}
+                                      className="w-full h-full object-cover"
+                                    />
+                                  </div>
                               </td>
                               <td className="p-4 max-w-xs">
                                 <span className="font-semibold text-white block truncate">{l.title}</span>

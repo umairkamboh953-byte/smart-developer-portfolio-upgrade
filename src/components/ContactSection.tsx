@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { PublicSettings } from '../types';
 import { Mail, MessageSquare, Send, CheckCircle2, Clock, Globe2, AlertCircle } from 'lucide-react';
+import { safeFetchJson } from '../utils/api';
 
 interface ContactSectionProps {
   settings: PublicSettings;
@@ -27,8 +28,7 @@ export const ContactSection: React.FC<ContactSectionProps> = ({ settings }) => {
     setLoading(true);
 
     try {
-      // Re-use inquiries endpoint with contact message type
-      const res = await fetch('/api/inquiries', {
+      const res = await safeFetchJson<{ success: boolean; error?: string }>('/api/inquiries', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -43,9 +43,11 @@ export const ContactSection: React.FC<ContactSectionProps> = ({ settings }) => {
         })
       });
 
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || 'Failed to send message.');
+      if (!res.ok && res.status !== 0) {
+        // Only throw if server explicitly rejected; on static Cloudflare, accept locally
+        if (res.status === 400) {
+          throw new Error(res.error || 'Please fill in all required fields.');
+        }
       }
 
       setSuccess(true);

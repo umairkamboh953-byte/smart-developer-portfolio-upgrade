@@ -23,6 +23,8 @@ import { PolicyModal } from './components/PolicyModal';
 import { AdminLoginPage } from './admin/AdminLoginPage';
 import { AdminDashboard } from './admin/AdminDashboard';
 import { ArrowRight, Loader2 } from 'lucide-react';
+import { storageService } from './utils/storage';
+import { safeFetchJson } from './utils/api';
 
 export default function App() {
   // URL Route State: detects /admin, /admin/login, or public paths
@@ -83,22 +85,24 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // Fetch initial public store data from persistent backend
+  // Fetch initial public store data from persistent backend & cache
   const fetchPublicData = async () => {
     try {
-      const [resListings, resSettings, resFaqs] = await Promise.all([
-        fetch('/api/listings'),
-        fetch('/api/settings'),
-        fetch('/api/faqs')
+      const [dataListings, dataSettings, dataFaqs] = await Promise.all([
+        storageService.getListings(),
+        storageService.getSettings(),
+        storageService.getFaqs()
       ]);
 
-      const dataListings = await resListings.json();
-      const dataSettings = await resSettings.json();
-      const dataFaqs = await resFaqs.json();
-
-      if (dataListings.listings) setListings(dataListings.listings);
-      if (dataSettings.settings) setSettings(dataSettings.settings);
-      if (dataFaqs.faqs) setFaqs(dataFaqs.faqs);
+      if (dataListings && Array.isArray(dataListings)) {
+        setListings(dataListings);
+      }
+      if (dataSettings) {
+        setSettings(dataSettings);
+      }
+      if (dataFaqs && Array.isArray(dataFaqs)) {
+        setFaqs(dataFaqs);
+      }
     } catch (err) {
       console.error('Error fetching public store data:', err);
     } finally {
@@ -108,23 +112,25 @@ export default function App() {
 
   useEffect(() => {
     fetchPublicData();
+    window.addEventListener('smart_developer_data_changed', fetchPublicData);
+    return () => {
+      window.removeEventListener('smart_developer_data_changed', fetchPublicData);
+    };
   }, []);
 
   // Check admin token validity against server
   useEffect(() => {
     if (adminToken) {
-      fetch('/api/admin/check-auth', {
+      safeFetchJson('/api/admin/check-auth', {
         headers: { Authorization: `Bearer ${adminToken}` }
       })
         .then((res) => {
-          if (!res.ok) {
+          if (!res.ok && res.status === 401) {
             localStorage.removeItem('smart_developer_admin_token');
             setAdminToken(null);
           }
         })
-        .catch(() => {
-          setAdminToken(null);
-        });
+        .catch(() => {});
     }
   }, [adminToken]);
 

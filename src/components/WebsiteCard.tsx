@@ -2,6 +2,7 @@ import React from 'react';
 import { WebsiteListing, CurrencyCode } from '../types';
 import { formatPrice } from '../utils/currency';
 import { Eye, ShoppingBag, ArrowRight, Code } from 'lucide-react';
+import { ImageWithFallback } from './ImageWithFallback';
 
 interface WebsiteCardProps {
   listing: WebsiteListing;
@@ -22,15 +23,13 @@ export const WebsiteCard: React.FC<WebsiteCardProps> = ({
     <div className="group rounded-2xl overflow-hidden border border-white/[0.08] bg-[#0e111d] hover:border-white/20 transition-all duration-300 flex flex-col justify-between shadow-lg hover:shadow-2xl hover:shadow-black/60">
       {/* Top Preview Image Container */}
       <div className="relative aspect-[16/10] overflow-hidden bg-slate-900">
-        <img
+        <ImageWithFallback
           src={listing.thumbnail}
           alt={listing.title}
+          category={listing.category}
+          title={listing.title}
           loading="lazy"
-          referrerPolicy="no-referrer"
           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-          onError={(e) => {
-            (e.target as HTMLElement).style.display = 'none';
-          }}
         />
         {/* Subtle dark gradient scrim */}
         <div className="absolute inset-0 bg-gradient-to-t from-[#0e111d] via-transparent to-transparent opacity-50" />

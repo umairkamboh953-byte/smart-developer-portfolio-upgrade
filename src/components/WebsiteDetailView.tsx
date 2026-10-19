@@ -16,6 +16,7 @@ import {
   ExternalLink,
   Plus
 } from 'lucide-react';
+import { ImageWithFallback } from './ImageWithFallback';
 
 interface WebsiteDetailViewProps {
   listing: WebsiteListing;
@@ -64,11 +65,12 @@ export const WebsiteDetailView: React.FC<WebsiteDetailViewProps> = ({
           {/* Main Visual Preview */}
           <div className="rounded-2xl overflow-hidden border border-white/10 bg-[#0c0f1c] shadow-2xl relative">
             <div className="aspect-[16/10] overflow-hidden bg-slate-900 relative">
-              <img
+              <ImageWithFallback
                 src={activeImage || listing.thumbnail}
                 alt={listing.title}
+                category={listing.category}
+                title={listing.title}
                 loading="eager"
-                referrerPolicy="no-referrer"
                 className="w-full h-full object-cover"
               />
             </div>
@@ -106,11 +108,12 @@ export const WebsiteDetailView: React.FC<WebsiteDetailViewProps> = ({
                       activeImage === img ? 'border-blue-500 scale-105 shadow-md shadow-blue-500/20' : 'border-white/10 opacity-70 hover:opacity-100'
                     }`}
                   >
-                    <img
+                    <ImageWithFallback
                       src={img}
                       alt={`Preview ${idx + 1}`}
+                      category={listing.category}
+                      title={listing.title}
                       loading="lazy"
-                      referrerPolicy="no-referrer"
                       className="w-full h-full object-cover"
                     />
                   </button>

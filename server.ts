@@ -11,10 +11,16 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
+const PORT = 3000;
 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Serve static public assets and uploaded files
+app.use('/assets', express.static(path.resolve(__dirname, 'public/assets')));
+app.use('/src/assets/images', express.static(path.resolve(__dirname, 'public/assets/images')));
+app.use('/data/uploads', express.static(path.resolve(__dirname, 'data/uploads')));
+app.use(express.static(path.resolve(__dirname, 'public')));
 
 // Auth middleware for Admin API
 const requireAdmin = (req: Request, res: Response, next: NextFunction): void => {
@@ -150,13 +156,17 @@ app.post('/api/orders', (req: Request, res: Response) => {
       customerEmail,
       customerPhone,
       customerCountry,
-      licenseType,
       preferredPaymentMethod,
+      paymentMethod,
+      licenseType,
       customizationAddons,
       customerNotes
     } = req.body;
 
-    if (!websiteId || !websiteTitle || !customerName || !customerEmail || !customerCountry || !preferredPaymentMethod) {
+    const resolvedMethod = preferredPaymentMethod || paymentMethod || 'Bank Wire Transfer';
+    const resolvedCountry = customerCountry || 'International';
+
+    if (!websiteId || !websiteTitle || !customerName || !customerEmail) {
       res.status(400).json({
         error: 'Please fill out all required order details.'
       });
@@ -177,9 +187,9 @@ app.post('/api/orders', (req: Request, res: Response) => {
       customerName: String(customerName).trim(),
       customerEmail: String(customerEmail).trim().toLowerCase(),
       customerPhone: customerPhone ? String(customerPhone).trim() : undefined,
-      customerCountry: String(customerCountry).trim(),
+      customerCountry: resolvedCountry,
       licenseType: String(licenseType || 'Single Commercial License'),
-      preferredPaymentMethod: String(preferredPaymentMethod),
+      preferredPaymentMethod: resolvedMethod,
       customizationAddons: Array.isArray(customizationAddons) ? customizationAddons : [],
       customerNotes: customerNotes ? String(customerNotes).trim() : undefined
     });
@@ -516,7 +526,7 @@ async function startServer() {
   if (!isProduction) {
     const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
-      server: { middlewareMode: true },
+      server: { middlewareMode: true, hmr: false },
       appType: 'spa',
     });
     app.use(vite.middlewares);

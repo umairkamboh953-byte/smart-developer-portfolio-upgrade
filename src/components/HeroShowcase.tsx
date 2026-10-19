@@ -104,7 +104,7 @@ export const HeroShowcase: React.FC<HeroShowcaseProps> = ({
                 {/* Hero Showcase Image */}
                 <div className="relative aspect-[16/10] overflow-hidden bg-slate-900">
                   <img
-                    src="/src/assets/images/hero_showcase_dark_1792311614014.jpg"
+                    src="/assets/images/hero_showcase_dark_1792311614014.jpg"
                     alt="Smart Developer Website Showcase"
                     loading="eager"
                     referrerPolicy="no-referrer"
@@ -142,7 +142,7 @@ export const HeroShowcase: React.FC<HeroShowcaseProps> = ({
                 </div>
                 <div className="aspect-[4/3] rounded-lg overflow-hidden bg-slate-800 mb-2">
                   <img
-                    src="/src/assets/images/ecommerce_luxury_store_1792311614226.jpg"
+                    src="/assets/images/ecommerce_luxury_store_1792311614226.jpg"
                     alt="E-commerce sample"
                     loading="lazy"
                     referrerPolicy="no-referrer"
@@ -160,7 +160,7 @@ export const HeroShowcase: React.FC<HeroShowcaseProps> = ({
                 </div>
                 <div className="aspect-[4/3] rounded-lg overflow-hidden bg-slate-800">
                   <img
-                    src="/src/assets/images/saas_analytics_platform_1792311615607.jpg"
+                    src="/assets/images/saas_analytics_platform_1792311615607.jpg"
                     alt="SaaS Analytics sample"
                     loading="lazy"
                     referrerPolicy="no-referrer"

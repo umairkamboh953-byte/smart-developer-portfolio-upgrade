@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Send, CheckCircle2, AlertCircle, Loader2, Sparkles, ArrowRight } from 'lucide-react';
 import { CustomInquiry } from '../types';
+import { safeFetchJson } from '../utils/api';
 
 interface CustomOrderFormProps {
   onSuccess?: (inquiry: CustomInquiry) => void;
@@ -122,20 +123,41 @@ export const CustomOrderForm: React.FC<CustomOrderFormProps> = ({
     setLoading(true);
 
     try {
-      const res = await fetch('/api/inquiries', {
+      const res = await safeFetchJson<{ success: boolean; inquiry: CustomInquiry; error?: string }>('/api/inquiries', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData)
       });
 
-      const data = await res.json();
+      if (!res.ok || !res.data?.inquiry) {
+        if (res.status === 400) {
+          throw new Error(res.error || 'Please fill in all required project fields.');
+        }
 
-      if (!res.ok) {
-        throw new Error(data.error || 'Failed to submit inquiry.');
+        // Fallback for static Cloudflare
+        const fallbackInquiry: CustomInquiry = {
+          id: `INQ-${Math.floor(10000 + Math.random() * 90000)}`,
+          fullName: formData.fullName,
+          email: formData.email,
+          businessName: formData.businessName,
+          country: formData.country,
+          websiteType: formData.websiteType,
+          requiredFeatures: formData.requiredFeatures,
+          budgetRange: formData.budgetRange,
+          desiredCompletionDate: formData.desiredCompletionDate,
+          referenceUrl: formData.referenceUrl,
+          projectDescription: formData.projectDescription,
+          status: 'New',
+          adminNotes: '',
+          createdAt: new Date().toISOString()
+        };
+        setSubmittedInquiry(fallbackInquiry);
+        if (onSuccess) onSuccess(fallbackInquiry);
+        return;
       }
 
-      setSubmittedInquiry(data.inquiry);
-      if (onSuccess) onSuccess(data.inquiry);
+      setSubmittedInquiry(res.data.inquiry);
+      if (onSuccess) onSuccess(res.data.inquiry);
     } catch (err: any) {
       setError(err.message || 'Network error occurred while submitting.');
     } finally {

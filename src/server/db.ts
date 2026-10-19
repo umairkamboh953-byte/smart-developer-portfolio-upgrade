@@ -134,10 +134,10 @@ const INITIAL_DB: DatabaseSchema = {
       priceUSD: 149,
       featured: true,
       published: true,
-      thumbnail: '/src/assets/images/ecommerce_luxury_store_1792311614226.jpg',
+      thumbnail: '/assets/images/ecommerce_luxury_store_1792311614226.jpg',
       screenshots: [
-        '/src/assets/images/ecommerce_luxury_store_1792311614226.jpg',
-        '/src/assets/images/hero_showcase_dark_1792311614014.jpg'
+        '/assets/images/ecommerce_luxury_store_1792311614226.jpg',
+        '/assets/images/hero_showcase_dark_1792311614014.jpg'
       ],
       liveDemoUrl: '#demo/aura-luxe',
       sourceCodeAvailable: true,
@@ -171,9 +171,9 @@ const INITIAL_DB: DatabaseSchema = {
       priceUSD: 189,
       featured: true,
       published: true,
-      thumbnail: '/src/assets/images/real_estate_luxury_web_1792311614353.jpg',
+      thumbnail: '/assets/images/real_estate_luxury_web_1792311614353.jpg',
       screenshots: [
-        '/src/assets/images/real_estate_luxury_web_1792311614353.jpg'
+        '/assets/images/real_estate_luxury_web_1792311614353.jpg'
       ],
       liveDemoUrl: '#demo/avant-garde',
       sourceCodeAvailable: true,
@@ -206,9 +206,9 @@ const INITIAL_DB: DatabaseSchema = {
       priceUSD: 169,
       featured: true,
       published: true,
-      thumbnail: '/src/assets/images/fashion_brand_website_1792311615530.jpg',
+      thumbnail: '/assets/images/fashion_brand_website_1792311615530.jpg',
       screenshots: [
-        '/src/assets/images/fashion_brand_website_1792311615530.jpg'
+        '/assets/images/fashion_brand_website_1792311615530.jpg'
       ],
       liveDemoUrl: '#demo/void-archives',
       sourceCodeAvailable: true,
@@ -240,10 +240,10 @@ const INITIAL_DB: DatabaseSchema = {
       priceUSD: 199,
       featured: true,
       published: true,
-      thumbnail: '/src/assets/images/saas_analytics_platform_1792311615607.jpg',
+      thumbnail: '/assets/images/saas_analytics_platform_1792311615607.jpg',
       screenshots: [
-        '/src/assets/images/saas_analytics_platform_1792311615607.jpg',
-        '/src/assets/images/hero_showcase_dark_1792311614014.jpg'
+        '/assets/images/saas_analytics_platform_1792311615607.jpg',
+        '/assets/images/hero_showcase_dark_1792311614014.jpg'
       ],
       liveDemoUrl: '#demo/aether-cloud',
       sourceCodeAvailable: true,
@@ -275,9 +275,9 @@ const INITIAL_DB: DatabaseSchema = {
       priceUSD: 159,
       featured: false,
       published: true,
-      thumbnail: '/src/assets/images/ecommerce_luxury_store_1792311614226.jpg',
+      thumbnail: '/assets/images/ecommerce_luxury_store_1792311614226.jpg',
       screenshots: [
-        '/src/assets/images/ecommerce_luxury_store_1792311614226.jpg'
+        '/assets/images/ecommerce_luxury_store_1792311614226.jpg'
       ],
       liveDemoUrl: '#demo/lumina-botanical',
       sourceCodeAvailable: true,
@@ -307,9 +307,9 @@ const INITIAL_DB: DatabaseSchema = {
       priceUSD: 129,
       featured: false,
       published: true,
-      thumbnail: '/src/assets/images/hero_showcase_dark_1792311614014.jpg',
+      thumbnail: '/assets/images/hero_showcase_dark_1792311614014.jpg',
       screenshots: [
-        '/src/assets/images/hero_showcase_dark_1792311614014.jpg'
+        '/assets/images/hero_showcase_dark_1792311614014.jpg'
       ],
       liveDemoUrl: '#demo/monolith-portfolio',
       sourceCodeAvailable: true,
@@ -476,7 +476,7 @@ class Database {
       priceUSD: Number(listing.priceUSD) || 99,
       featured: Boolean(listing.featured),
       published: listing.published !== false,
-      thumbnail: listing.thumbnail || '/src/assets/images/hero_showcase_dark_1792311614014.jpg',
+      thumbnail: listing.thumbnail || '/assets/images/hero_showcase_dark_1792311614014.jpg',
       screenshots: listing.screenshots || [],
       liveDemoUrl: listing.liveDemoUrl || '#demo',
       sourceCodeAvailable: listing.sourceCodeAvailable !== false,

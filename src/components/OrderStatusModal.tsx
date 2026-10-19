@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { X, Search, CheckCircle2, Clock, AlertCircle, Download, FileText, Loader2 } from 'lucide-react';
+import { safeFetchJson } from '../utils/api';
 
 interface OrderStatusModalProps {
   onClose: () => void;
@@ -20,12 +21,13 @@ export const OrderStatusModal: React.FC<OrderStatusModalProps> = ({ onClose }) =
     setOrderData(null);
 
     try {
-      const res = await fetch(`/api/orders/${encodeURIComponent(orderQuery.trim().toUpperCase())}`);
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || 'Order reference not found.');
+      const res = await safeFetchJson<{ success: boolean; order: any; error?: string }>(
+        `/api/orders/${encodeURIComponent(orderQuery.trim().toUpperCase())}`
+      );
+      if (!res.ok || !res.data?.order) {
+        throw new Error(res.error || 'Order reference not found.');
       }
-      setOrderData(data.order);
+      setOrderData(res.data.order);
     } catch (err: any) {
       setError(err.message || 'Unable to find order matching that reference code.');
     } finally {
