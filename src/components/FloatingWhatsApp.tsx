@@ -40,17 +40,17 @@ export const FloatingWhatsApp: React.FC<FloatingWhatsAppProps> = ({
   const buttonContent = (
     <div
       id="smart-developer-whatsapp-floating"
-      className="smart-whatsapp-floating-container fixed bottom-5 right-5 sm:bottom-6 sm:right-6 z-[9999] flex items-center justify-center pointer-events-auto select-none print:hidden"
+      className="smart-whatsapp-floating-container fixed bottom-5 left-5 sm:bottom-6 sm:left-6 z-[9990] flex items-center justify-center pointer-events-auto select-none print:hidden"
       style={{
         position: 'fixed',
         bottom: '20px',
-        right: '20px',
-        zIndex: 9999,
+        left: '20px',
+        zIndex: 9990,
       }}
     >
-      {/* Desktop Quick Tooltip on Hover */}
+      {/* Desktop Quick Tooltip on Hover (Facing inward to the right) */}
       {showTooltip && (
-        <div className="hidden sm:block absolute right-16 bottom-2 whitespace-nowrap px-3 py-1.5 bg-[#0e111d] border border-white/15 rounded-xl shadow-2xl text-xs text-white animate-in fade-in zoom-in-95 duration-150 pointer-events-none">
+        <div className="hidden sm:block absolute left-16 bottom-2 whitespace-nowrap px-3 py-1.5 bg-[#0e111d] border border-white/15 rounded-xl shadow-2xl text-xs text-white animate-in fade-in zoom-in-95 duration-150 pointer-events-none">
           <div className="font-semibold flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full bg-[#25D366] animate-pulse"></span>
             <span>Chat on WhatsApp</span>

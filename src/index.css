@@ -109,14 +109,14 @@
   box-shadow: 0 0 35px -5px rgba(139, 92, 246, 0.25);
 }
 
-/* Bulletproof Floating WhatsApp Button - Viewport Fixed Anchor */
+/* Bulletproof Floating WhatsApp Button - Viewport Fixed Anchor (Bottom-Left) */
 .smart-whatsapp-floating-container {
   position: fixed !important;
-  right: 20px !important;
+  left: 20px !important;
   bottom: 20px !important;
   bottom: calc(20px + env(safe-area-inset-bottom, 0px)) !important;
-  right: calc(20px + env(safe-area-inset-right, 0px)) !important;
-  z-index: 9999 !important;
+  left: calc(20px + env(safe-area-inset-left, 0px)) !important;
+  z-index: 9990 !important;
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
@@ -130,9 +130,9 @@
 
 @media (min-width: 640px) {
   .smart-whatsapp-floating-container {
-    right: 24px !important;
+    left: 24px !important;
     bottom: 24px !important;
     bottom: calc(24px + env(safe-area-inset-bottom, 0px)) !important;
-    right: calc(24px + env(safe-area-inset-right, 0px)) !important;
+    left: calc(24px + env(safe-area-inset-left, 0px)) !important;
   }
 }
