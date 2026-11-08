@@ -21,6 +21,9 @@ export interface WebsiteListing {
   screenshots: string[];
   liveDemoUrl: string;
   sourceCodeAvailable: boolean;
+  sourceCodeUrl?: string;
+  sourceCodeNotes?: string;
+  sourceCodeFile?: string;
   customizationAvailable: boolean;
   techStack: string[];
   includedPages: string[];
@@ -89,3 +92,15 @@ export interface FAQItem {
   answer: string;
   category: string;
 }
+
+export type UserRole = 'owner' | 'member';
+
+export interface TeamMember {
+  id: string;
+  email: string;
+  name?: string;
+  role: 'member';
+  addedAt: string;
+  addedBy: string;
+}
+

@@ -4,7 +4,9 @@ import {
   CustomInquiry,
   PurchaseOrder,
   FAQItem,
-  PublicSettings
+  PublicSettings,
+  TeamMember,
+  UserRole
 } from '../types';
 import {
   LayoutDashboard,
@@ -35,7 +37,18 @@ import {
   Search,
   Upload,
   CheckCircle2,
-  Star
+  Star,
+  Image as ImageIcon,
+  FileCode,
+  FolderArchive,
+  Download,
+  Link as LinkIcon,
+  Users,
+  UserPlus,
+  UserMinus,
+  Crown,
+  ShieldAlert,
+  Lock
 } from 'lucide-react';
 import { ImageWithFallback } from '../components/ImageWithFallback';
 import { safeFetchJson } from '../utils/api';
@@ -56,6 +69,7 @@ export type AdminTab =
   | 'customer-inquiries'
   | 'custom-requests'
   | 'faqs'
+  | 'team'
   | 'contact-settings';
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({
@@ -86,12 +100,28 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [editingListing, setEditingListing] = useState<Partial<WebsiteListing> | null>(null);
   const [showListingModal, setShowListingModal] = useState(false);
   const [imageUploadLoading, setImageUploadLoading] = useState(false);
+  const [sourceCodeUploadLoading, setSourceCodeUploadLoading] = useState(false);
+  const [galleryImages, setGalleryImages] = useState<{ url: string; name: string }[]>([]);
+  const [showMediaPickerModal, setShowMediaPickerModal] = useState<false | 'thumbnail' | 'screenshot'>(false);
 
   // Categories state
   const [newCategoryName, setNewCategoryName] = useState('');
 
   // FAQ editor state
   const [editingFaq, setEditingFaq] = useState<Partial<FAQItem> | null>(null);
+
+  // Role & Team Management
+  const [userRole, setUserRole] = useState<UserRole>(() => {
+    return (localStorage.getItem('smart_developer_admin_role') as UserRole) || 'owner';
+  });
+  const [userEmail, setUserEmail] = useState<string>(() => {
+    return localStorage.getItem('smart_developer_admin_email') || 'smartdeveloper125@gmail.com';
+  });
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+  const [newMemberEmail, setNewMemberEmail] = useState('');
+  const [newMemberName, setNewMemberName] = useState('');
+  const [teamLoading, setTeamLoading] = useState(false);
+  const [teamActionError, setTeamActionError] = useState<string | null>(null);
 
   // Search & Filter States
   const [orderSearch, setOrderSearch] = useState('');
@@ -102,6 +132,33 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [newPassword, setNewPassword] = useState('');
   const [passwordSuccess, setPasswordSuccess] = useState(false);
 
+  const fetchTeamMembers = async () => {
+    try {
+      const res = await safeFetchJson<{
+        success: boolean;
+        teamMembers: TeamMember[];
+        isOwner: boolean;
+        currentRole: UserRole;
+        currentEmail: string;
+      }>('/api/admin/team', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok && res.data) {
+        if (res.data.teamMembers) setTeamMembers(res.data.teamMembers);
+        if (res.data.currentRole) {
+          setUserRole(res.data.currentRole);
+          localStorage.setItem('smart_developer_admin_role', res.data.currentRole);
+        }
+        if (res.data.currentEmail) {
+          setUserEmail(res.data.currentEmail);
+          localStorage.setItem('smart_developer_admin_email', res.data.currentEmail);
+        }
+      }
+    } catch (err) {
+      console.error('Error fetching team members:', err);
+    }
+  };
+
   const fetchAdminData = async () => {
     setLoading(true);
     try {
@@ -109,6 +166,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         'Content-Type': 'application/json',
         Authorization: `Bearer ${token}`
       };
+
+      fetchTeamMembers();
 
       const [resListings, resInquiries, resOrders, resSettings, resFaqs, resCats] = await Promise.all([
         safeFetchJson<{ success: boolean; listings: WebsiteListing[] }>('/api/admin/listings', { headers }),
@@ -253,6 +312,88 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     reader.readAsDataURL(file);
   };
 
+  // Source Code File Upload handler (.zip, .tar.gz, etc.)
+  const handleSourceCodeUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setSourceCodeUploadLoading(true);
+    const reader = new FileReader();
+    reader.onload = async () => {
+      try {
+        const base64Data = reader.result as string;
+        const res = await safeFetchJson<{ success: boolean; url: string; filename: string }>('/api/admin/upload-file', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
+          },
+          body: JSON.stringify({ dataUrl: base64Data, filename: file.name })
+        });
+
+        if (res.ok && res.data?.url) {
+          if (editingListing) {
+            setEditingListing({
+              ...editingListing,
+              sourceCodeUrl: res.data.url,
+              sourceCodeFile: file.name
+            });
+            showNotification(`Source code package "${file.name}" uploaded successfully!`);
+          }
+        } else {
+          if (editingListing) {
+            setEditingListing({
+              ...editingListing,
+              sourceCodeFile: file.name
+            });
+            showNotification(`File "${file.name}" selected.`);
+          }
+        }
+      } catch (err: any) {
+        showNotification('Source code upload error: ' + (err.message || 'Check connection'));
+      } finally {
+        setSourceCodeUploadLoading(false);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // Fetch gallery images
+  const fetchGalleryImages = async () => {
+    try {
+      const res = await safeFetchJson<{ success: boolean; images: { url: string; name: string }[] }>('/api/admin/gallery-images', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok && res.data?.images && res.data.images.length > 0) {
+        setGalleryImages(res.data.images);
+      } else {
+        throw new Error('No images from endpoint');
+      }
+    } catch {
+      // Fallback preset demo images
+      setGalleryImages([
+        { url: '/assets/images/ecommerce_luxury_store_1792311614226.jpg', name: 'Aura Luxe E-Commerce' },
+        { url: '/assets/images/saas_analytics_platform_1792311615607.jpg', name: 'Nexus Cloud SaaS' },
+        { url: '/assets/images/real_estate_luxury_web_1792311614353.jpg', name: 'Elysian Estates Real Estate' },
+        { url: '/assets/images/fashion_brand_website_1792311615530.jpg', name: 'Atelier Streetwear Fashion' },
+        { url: '/assets/images/hero_showcase_dark_1792311614014.jpg', name: 'Smart Developer Hero Showcase' }
+      ]);
+    }
+  };
+
+  const handleSelectGalleryImage = (url: string) => {
+    if (!editingListing) return;
+    if (showMediaPickerModal === 'thumbnail') {
+      setEditingListing({ ...editingListing, thumbnail: url });
+      showNotification('Thumbnail updated from Media Library.');
+    } else if (showMediaPickerModal === 'screenshot') {
+      const currentScreenshots = editingListing.screenshots || [];
+      setEditingListing({ ...editingListing, screenshots: [...currentScreenshots, url] });
+      showNotification('Screenshot added from Media Library.');
+    }
+    setShowMediaPickerModal(false);
+  };
+
   // -------------------------------------------------------------
   // LISTING HANDLERS
   // -------------------------------------------------------------
@@ -275,6 +416,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   };
 
   const handleDeleteListing = async (id: string) => {
+    if (userRole === 'member') {
+      showNotification('Permission Denied: Team members have add-only access. Only Owner (smartdeveloper125@gmail.com) can delete listings.');
+      return;
+    }
+    if (!window.confirm('Are you sure you want to delete this website listing? This action cannot be undone.')) {
+      return;
+    }
     try {
       await storageService.deleteListing(id, token);
       showNotification('Website listing deleted from catalog.');
@@ -330,6 +478,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   };
 
   const handleDeleteCategory = async (catName: string) => {
+    if (userRole === 'member') {
+      showNotification('Permission Denied: Team members cannot delete categories. Only Owner (smartdeveloper125@gmail.com) can delete.');
+      return;
+    }
+    if (!window.confirm(`Are you sure you want to delete category "${catName}"?`)) {
+      return;
+    }
     try {
       const res = await safeFetchJson<{ success: boolean; categories: string[] }>(
         `/api/admin/categories/${encodeURIComponent(catName)}`,
@@ -374,6 +529,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   };
 
   const handleDeleteInquiry = async (id: string) => {
+    if (userRole === 'member') {
+      showNotification('Permission Denied: Team members cannot delete inquiries. Only Owner can delete.');
+      return;
+    }
+    if (!window.confirm('Are you sure you want to delete this customer inquiry?')) {
+      return;
+    }
     try {
       await safeFetchJson(`/api/admin/inquiries/${id}`, {
         method: 'DELETE',
@@ -504,6 +666,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   };
 
   const handleDeleteFAQ = async (id: string) => {
+    if (userRole === 'member') {
+      showNotification('Permission Denied: Team members cannot delete FAQs. Only Owner can delete.');
+      return;
+    }
+    if (!window.confirm('Are you sure you want to delete this FAQ?')) {
+      return;
+    }
     try {
       await safeFetchJson(`/api/admin/faqs/${id}`, {
         method: 'DELETE',
@@ -514,6 +683,82 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       notifyDataChanged();
     } catch (err: any) {
       showNotification('Delete FAQ error: ' + (err.message || 'Error'));
+    }
+  };
+
+  // -------------------------------------------------------------
+  // TEAM MANAGEMENT HANDLERS (OWNER ONLY)
+  // -------------------------------------------------------------
+  const handleAddTeamMember = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (userRole === 'member') {
+      showNotification('Permission Denied: Only Owner (smartdeveloper125@gmail.com) can add team members.');
+      return;
+    }
+    const clean = newMemberEmail.trim().toLowerCase();
+    if (!clean || !clean.includes('@')) {
+      setTeamActionError('Please enter a valid Google email address.');
+      return;
+    }
+
+    setTeamLoading(true);
+    setTeamActionError(null);
+    try {
+      const res = await safeFetchJson<{ success: boolean; member: TeamMember; error?: string; message?: string }>('/api/admin/team', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          email: clean,
+          name: newMemberName.trim()
+        })
+      });
+
+      if (res.ok && res.data?.member) {
+        showNotification(res.data.message || `Access granted to ${clean}`);
+        setNewMemberEmail('');
+        setNewMemberName('');
+        fetchTeamMembers();
+      } else {
+        setTeamActionError(res.error || 'Failed to add team member');
+        showNotification(res.error || 'Failed to add team member');
+      }
+    } catch (err: any) {
+      setTeamActionError(err.message || 'Error adding team member');
+      showNotification('Error: ' + (err.message || 'Failed'));
+    } finally {
+      setTeamLoading(false);
+    }
+  };
+
+  const handleRemoveTeamMember = async (id: string, email: string) => {
+    if (userRole === 'member') {
+      showNotification('Permission Denied: Only Owner can remove team members.');
+      return;
+    }
+    if (!window.confirm(`Are you sure you want to revoke admin panel access for "${email}"?`)) {
+      return;
+    }
+
+    setTeamLoading(true);
+    try {
+      const res = await safeFetchJson<{ success: boolean; error?: string; message?: string }>(`/api/admin/team/${id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      if (res.ok) {
+        showNotification(`Access revoked for ${email}`);
+        fetchTeamMembers();
+      } else {
+        showNotification(res.error || 'Failed to revoke access');
+      }
+    } catch (err: any) {
+      showNotification('Error revoking access: ' + (err.message || 'Failed'));
+    } finally {
+      setTeamLoading(false);
     }
   };
 
@@ -1656,40 +1901,40 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     </button>
                   </form>
 
-                  {/* Change Admin Password */}
-                  <form
-                    onSubmit={handleChangePassword}
-                    className="p-6 rounded-2xl border border-white/10 bg-[#0d101e] space-y-4 shadow-xl"
-                  >
-                    <h3 className="text-sm font-bold text-white uppercase tracking-wider">
-                      Change Master Admin Password
-                    </h3>
-
-                    {passwordSuccess && (
-                      <div className="p-3 rounded-lg bg-emerald-950/60 border border-emerald-800 text-emerald-200 text-xs">
-                        Password updated successfully.
+                  {/* Administrator Access & Security Notice */}
+                  <div className="p-6 rounded-2xl border border-blue-500/20 bg-gradient-to-br from-[#0d101e] to-blue-950/20 space-y-4 shadow-xl">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-9 h-9 rounded-xl bg-blue-600/20 border border-blue-500/30 flex items-center justify-center text-blue-400">
+                          <ShieldCheck className="w-5 h-5 text-emerald-400" />
+                        </div>
+                        <div>
+                          <h3 className="text-sm font-bold text-white uppercase tracking-wider">
+                            Administrator Security &amp; Access Control
+                          </h3>
+                          <p className="text-xs text-slate-400">
+                            Username and password login have been permanently removed.
+                          </p>
+                        </div>
                       </div>
-                    )}
-
-                    <div className="space-y-1.5 max-w-sm">
-                      <label className="text-xs font-medium text-slate-300">New Password (min 6 characters)</label>
-                      <input
-                        type="password"
-                        required
-                        value={newPassword}
-                        onChange={(e) => setNewPassword(e.target.value)}
-                        placeholder="Enter new master password..."
-                        className="w-full px-3.5 py-2.5 bg-[#141829] border border-white/10 rounded-xl text-xs text-white"
-                      />
+                      <span className="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-500/15 border border-emerald-500/30 text-emerald-300">
+                        Locked &amp; Secured
+                      </span>
                     </div>
 
-                    <button
-                      type="submit"
-                      className="px-5 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-semibold transition-colors"
-                    >
-                      Update Password
-                    </button>
-                  </form>
+                    <div className="p-4 rounded-xl bg-black/40 border border-white/5 space-y-2">
+                      <div className="text-xs text-slate-300 font-medium">
+                        Primary Authorized Google Administrator:
+                      </div>
+                      <div className="flex items-center gap-2 font-mono text-xs text-emerald-400 bg-[#121626] p-2.5 rounded-lg border border-emerald-500/20">
+                        <Mail className="w-4 h-4 text-blue-400" />
+                        <span>smartdeveloper125@gmail.com</span>
+                      </div>
+                      <p className="text-[11px] text-slate-400 pt-1">
+                        Only authenticated sign-ins matching this email address are authorized to view or edit website listings, orders, client inquiries, and settings.
+                      </p>
+                    </div>
+                  </div>
                 </div>
               )}
             </>
@@ -1781,28 +2026,150 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </div>
               </div>
 
-              {/* Thumbnail Image input + File Upload option */}
-              <div className="space-y-2">
-                <label className="font-semibold text-slate-300 block">Thumbnail Image</label>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    required
-                    value={editingListing.thumbnail || ''}
-                    onChange={(e) => setEditingListing({ ...editingListing, thumbnail: e.target.value })}
-                    placeholder="Enter image URL or upload image file..."
-                    className="flex-1 px-3 py-2 bg-[#141829] border border-white/10 rounded-lg text-xs text-white font-mono"
-                  />
-                  <label className="px-3.5 py-2 bg-[#1a2038] hover:bg-[#252d4e] border border-white/10 rounded-lg text-xs text-slate-200 cursor-pointer flex items-center gap-1.5 shrink-0 transition-colors">
-                    <Upload className="w-3.5 h-3.5" />
-                    <span>Upload</span>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={(e) => handleFileUpload(e, 'thumbnail')}
-                      className="hidden"
-                    />
+              {/* Thumbnail Image input + Gallery Upload options */}
+              <div className="space-y-3 p-4 rounded-xl bg-[#101424] border border-white/10">
+                <div className="flex items-center justify-between">
+                  <label className="font-semibold text-slate-200 text-xs flex items-center gap-1.5">
+                    <ImageIcon className="w-4 h-4 text-blue-400" />
+                    <span>Website Thumbnail Image (Gallery / File)</span>
                   </label>
+                  {imageUploadLoading && (
+                    <span className="text-[11px] text-blue-400 flex items-center gap-1">
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Uploading from gallery...</span>
+                    </span>
+                  )}
+                </div>
+
+                {/* Visual Image Preview */}
+                <div className="flex flex-col sm:flex-row gap-4 items-start">
+                  <div className="w-full sm:w-44 h-28 rounded-lg bg-[#0b0e1a] border border-white/10 overflow-hidden relative shrink-0 flex items-center justify-center group">
+                    {editingListing.thumbnail ? (
+                      <>
+                        <img
+                          src={editingListing.thumbnail}
+                          alt="Thumbnail Preview"
+                          className="w-full h-full object-cover"
+                        />
+                        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                          <label className="p-1.5 rounded-md bg-blue-600 text-white cursor-pointer hover:bg-blue-500" title="Change from gallery">
+                            <Upload className="w-3.5 h-3.5" />
+                            <input
+                              type="file"
+                              accept="image/*"
+                              onChange={(e) => handleFileUpload(e, 'thumbnail')}
+                              className="hidden"
+                            />
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => setEditingListing({ ...editingListing, thumbnail: '' })}
+                            className="p-1.5 rounded-md bg-rose-600 text-white hover:bg-rose-500 cursor-pointer"
+                            title="Remove image"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="text-center p-2 text-slate-500 text-[11px]">
+                        <ImageIcon className="w-6 h-6 mx-auto mb-1 opacity-50" />
+                        <span>No image selected</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Actions & URL Input */}
+                  <div className="flex-1 space-y-2 w-full">
+                    <div className="flex flex-wrap gap-2">
+                      {/* Big prominent Gallery button */}
+                      <label className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-semibold cursor-pointer flex items-center gap-2 shadow-md shadow-blue-600/30 transition-all">
+                        <Upload className="w-4 h-4" />
+                        <span>📱 Gallery se Image Choose Karein</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => handleFileUpload(e, 'thumbnail')}
+                          className="hidden"
+                        />
+                      </label>
+
+                      {/* Pick from Media Library */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          fetchGalleryImages();
+                          setShowMediaPickerModal('thumbnail');
+                        }}
+                        className="px-3 py-2 bg-[#192038] hover:bg-[#252f52] border border-white/10 rounded-lg text-xs text-slate-200 cursor-pointer flex items-center gap-1.5 transition-colors"
+                      >
+                        <FolderArchive className="w-4 h-4 text-indigo-400" />
+                        <span>Media Library</span>
+                      </button>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        required
+                        value={editingListing.thumbnail || ''}
+                        onChange={(e) => setEditingListing({ ...editingListing, thumbnail: e.target.value })}
+                        placeholder="Or enter image URL (https://...)"
+                        className="flex-1 px-3 py-2 bg-[#141829] border border-white/10 rounded-lg text-xs text-white font-mono placeholder-slate-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Additional Project Screenshots from Gallery */}
+                <div className="pt-3 border-t border-white/5 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-semibold text-slate-300">
+                      Additional Gallery Screenshots ({editingListing.screenshots?.length || 0})
+                    </span>
+                    <div className="flex gap-2">
+                      <label className="px-2.5 py-1 bg-white/5 hover:bg-white/10 border border-white/10 rounded-md text-[11px] text-cyan-300 cursor-pointer flex items-center gap-1">
+                        <Plus className="w-3 h-3" />
+                        <span>Gallery se Add Karein</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => handleFileUpload(e, 'screenshot')}
+                          className="hidden"
+                        />
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          fetchGalleryImages();
+                          setShowMediaPickerModal('screenshot');
+                        }}
+                        className="px-2.5 py-1 bg-white/5 hover:bg-white/10 border border-white/10 rounded-md text-[11px] text-slate-300 flex items-center gap-1"
+                      >
+                        <span>From Library</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {editingListing.screenshots && editingListing.screenshots.length > 0 && (
+                    <div className="flex gap-2 overflow-x-auto py-1 no-scrollbar">
+                      {editingListing.screenshots.map((sUrl, sIdx) => (
+                        <div key={sIdx} className="relative w-20 h-14 rounded-md border border-white/10 overflow-hidden shrink-0 group">
+                          <img src={sUrl} alt={`Screenshot ${sIdx + 1}`} className="w-full h-full object-cover" />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const updated = editingListing.screenshots?.filter((_, i) => i !== sIdx);
+                              setEditingListing({ ...editingListing, screenshots: updated });
+                            }}
+                            className="absolute top-1 right-1 p-0.5 rounded bg-rose-600/90 text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -1861,6 +2228,98 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </div>
               </div>
 
+              {/* SOURCE CODE & DELIVERABLES CONFIGURATION */}
+              <div className="p-4 rounded-xl bg-gradient-to-br from-indigo-950/40 to-blue-950/30 border border-indigo-500/30 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <FileCode className="w-4 h-4 text-cyan-400" />
+                    <span className="font-semibold text-slate-200 text-xs">
+                      Website Source Code & Deliverable Package
+                    </span>
+                  </div>
+                  <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-emerald-400">
+                    <input
+                      type="checkbox"
+                      checked={editingListing.sourceCodeAvailable !== false}
+                      onChange={(e) => setEditingListing({ ...editingListing, sourceCodeAvailable: e.target.checked })}
+                      className="rounded text-blue-600 focus:ring-0"
+                    />
+                    <span>Source Code Ready to Deliver</span>
+                  </label>
+                </div>
+
+                {editingListing.sourceCodeAvailable !== false && (
+                  <div className="space-y-3 pt-2 text-xs">
+                    {/* Source Code Download or Repository Link */}
+                    <div className="space-y-1">
+                      <label className="text-slate-300 font-medium flex items-center justify-between">
+                        <span>Source Code Download / Repository Link</span>
+                        <span className="text-[11px] text-slate-400">GitHub, Google Drive, Dropbox, or Direct ZIP URL</span>
+                      </label>
+                      <div className="flex gap-2">
+                        <div className="relative flex-1">
+                          <LinkIcon className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                          <input
+                            type="text"
+                            value={editingListing.sourceCodeUrl || ''}
+                            onChange={(e) => setEditingListing({ ...editingListing, sourceCodeUrl: e.target.value })}
+                            placeholder="https://github.com/... or https://drive.google.com/..."
+                            className="w-full pl-9 pr-3 py-2 bg-[#141829] border border-white/10 rounded-lg text-xs text-white font-mono placeholder-slate-500 focus:border-indigo-500"
+                          />
+                        </div>
+
+                        {/* Direct ZIP / Archive File Upload from Device */}
+                        <label className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold cursor-pointer flex items-center gap-1.5 shrink-0 transition-colors shadow-sm">
+                          {sourceCodeUploadLoading ? (
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          ) : (
+                            <FolderArchive className="w-3.5 h-3.5" />
+                          )}
+                          <span>{sourceCodeUploadLoading ? 'Uploading...' : '📦 Upload ZIP'}</span>
+                          <input
+                            type="file"
+                            accept=".zip,.rar,.tar.gz,.7z,.tar"
+                            onChange={handleSourceCodeUpload}
+                            className="hidden"
+                            disabled={sourceCodeUploadLoading}
+                          />
+                        </label>
+                      </div>
+
+                      {/* Display attached file badge if present */}
+                      {editingListing.sourceCodeFile && (
+                        <div className="flex items-center gap-2 text-[11px] text-emerald-400 bg-emerald-950/40 border border-emerald-800/40 px-2.5 py-1 rounded-md mt-1">
+                          <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                          <span>Attached File: <strong>{editingListing.sourceCodeFile}</strong></span>
+                          {editingListing.sourceCodeUrl && (
+                            <a
+                              href={editingListing.sourceCodeUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-cyan-400 underline ml-auto text-[10px]"
+                            >
+                              Test Download Link
+                            </a>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Source Code Delivery Notes / Readme / Setup instructions */}
+                    <div className="space-y-1">
+                      <label className="text-slate-300 font-medium">Source Code Readme & Delivery Notes (Sent to Buyer)</label>
+                      <textarea
+                        rows={2}
+                        value={editingListing.sourceCodeNotes || ''}
+                        onChange={(e) => setEditingListing({ ...editingListing, sourceCodeNotes: e.target.value })}
+                        placeholder="Setup instructions, node version, environment variables, or license keys..."
+                        className="w-full px-3 py-2 bg-[#141829] border border-white/10 rounded-lg text-xs text-white placeholder-slate-500 leading-relaxed"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+
               {/* Toggles */}
               <div className="flex flex-wrap items-center gap-6 pt-2">
                 <label className="flex items-center gap-2 cursor-pointer">
@@ -1913,6 +2372,61 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* MEDIA LIBRARY / GALLERY PICKER MODAL */}
+      {showMediaPickerModal && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="bg-[#0f1424] border border-white/15 rounded-2xl max-w-2xl w-full p-6 shadow-2xl flex flex-col max-h-[85vh]">
+            <div className="flex items-center justify-between pb-4 border-b border-white/10">
+              <div className="flex items-center gap-2">
+                <FolderArchive className="w-5 h-5 text-indigo-400" />
+                <h3 className="font-bold text-white text-base">Media Library — Gallery Images</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowMediaPickerModal(false)}
+                className="text-slate-400 hover:text-white p-1 rounded-lg cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="py-3 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-400">
+              <span>Select any image to assign as {showMediaPickerModal === 'thumbnail' ? 'Thumbnail' : 'Screenshot'}:</span>
+              <label className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg cursor-pointer flex items-center gap-1.5 font-medium transition-colors shadow-sm">
+                <Upload className="w-3.5 h-3.5" />
+                <span>Upload New from Device</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => {
+                    handleFileUpload(e, showMediaPickerModal);
+                    setShowMediaPickerModal(false);
+                  }}
+                  className="hidden"
+                />
+              </label>
+            </div>
+
+            <div className="flex-1 overflow-y-auto grid grid-cols-2 sm:grid-cols-3 gap-3 p-1">
+              {galleryImages.map((img, i) => (
+                <div
+                  key={i}
+                  onClick={() => handleSelectGalleryImage(img.url)}
+                  className="group relative rounded-xl border border-white/10 hover:border-blue-500 overflow-hidden cursor-pointer bg-[#090d18] transition-all hover:scale-102 hover:shadow-lg"
+                >
+                  <div className="aspect-video w-full overflow-hidden bg-black/40">
+                    <img src={img.url} alt={img.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                  </div>
+                  <div className="p-2 text-[11px] text-slate-300 truncate font-mono">
+                    {img.name}
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       )}

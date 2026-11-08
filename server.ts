@@ -31,6 +31,20 @@ const requireAdmin = (req: Request, res: Response, next: NextFunction): void => 
     res.status(401).json({ error: 'Unauthorized: Invalid or expired admin credentials' });
     return;
   }
+  const session = db.getSession(token);
+  (req as any).adminUser = session || { email: 'smartdeveloper125@gmail.com', role: 'owner' };
+  next();
+};
+
+// Owner-only middleware: blocks deletion or team management for team members
+const requireOwner = (req: Request, res: Response, next: NextFunction): void => {
+  const adminUser = (req as any).adminUser;
+  if (!adminUser || adminUser.role !== 'owner') {
+    res.status(403).json({
+      error: 'Permission Denied: Team members have add-only access. Deleting content and managing team members is restricted to Owner (smartdeveloper125@gmail.com).'
+    });
+    return;
+  }
   next();
 };
 
@@ -243,31 +257,14 @@ app.get('/api/orders/:orderNumber', (req: Request, res: Response) => {
 // ADMIN API ENDPOINTS (PROTECTED)
 // -------------------------------------------------------------
 
-// Admin Login
-app.post('/api/admin/login', (req: Request, res: Response) => {
-  try {
-    const { password } = req.body;
-    if (!password) {
-      res.status(400).json({ error: 'Password is required' });
-      return;
-    }
-
-    if (db.verifyPassword(password)) {
-      const token = db.generateSessionToken();
-      res.json({
-        success: true,
-        token,
-        message: 'Admin authorization successful'
-      });
-    } else {
-      res.status(401).json({ error: 'Invalid administrator credentials' });
-    }
-  } catch (err: any) {
-    res.status(500).json({ error: err.message || 'Authentication failed' });
-  }
+// Admin Login - Password-based login is permanently disabled
+app.post('/api/admin/login', (_req: Request, res: Response) => {
+  res.status(403).json({
+    error: 'Password and username login have been permanently removed. Please use "Continue with Google" with your authorized administrator email (smartdeveloper125@gmail.com).'
+  });
 });
 
-// Admin Google Authentication (Restricted to Authorized Admin Email)
+// Admin Google Authentication (Restricted to Owner & Authorized Team Members)
 app.post('/api/admin/google-login', (req: Request, res: Response) => {
   try {
     const { email } = req.body;
@@ -277,17 +274,22 @@ app.post('/api/admin/google-login', (req: Request, res: Response) => {
     }
 
     const cleanEmail = String(email).toLowerCase().trim();
-    if (db.isAuthorizedAdminEmail(cleanEmail)) {
-      const token = db.generateSessionToken();
+    const role = db.getUserRole(cleanEmail);
+
+    if (role) {
+      const token = db.generateSessionToken(cleanEmail, role);
       res.json({
         success: true,
         token,
         email: cleanEmail,
-        message: 'Authorized Administrator verified via Google Sign-In'
+        role,
+        message: role === 'owner'
+          ? 'Authorized Owner verified with full administrative & deletion privileges'
+          : 'Authorized Team Member verified with Add & Edit access (Deletions restricted)'
       });
     } else {
       res.status(403).json({
-        error: `Access Denied: Google Account "${cleanEmail}" is not an authorized administrator. Only authorized admin emails (umairkamboh953@gmail.com / smartbuy9@gmail.com) can access the Smart Developer dashboard.`
+        error: `Access Denied: Google Account "${cleanEmail}" is not authorized. Only Owner (smartdeveloper125@gmail.com) and invited Team Members have access.`
       });
     }
   } catch (err: any) {
@@ -296,8 +298,14 @@ app.post('/api/admin/google-login', (req: Request, res: Response) => {
 });
 
 // Check Auth status
-app.get('/api/admin/check-auth', requireAdmin, (_req: Request, res: Response) => {
-  res.json({ success: true, authorized: true });
+app.get('/api/admin/check-auth', requireAdmin, (req: Request, res: Response) => {
+  const adminUser = (req as any).adminUser;
+  res.json({
+    success: true,
+    authorized: true,
+    role: adminUser?.role || 'owner',
+    email: adminUser?.email || 'smartdeveloper125@gmail.com'
+  });
 });
 
 // Get all listings for admin (including drafts)
@@ -310,7 +318,7 @@ app.get('/api/admin/listings', requireAdmin, (_req: Request, res: Response) => {
   }
 });
 
-// Save or create listing
+// Save or create listing (Both Owner and Team Members can add/edit listings)
 app.post('/api/admin/listings', requireAdmin, (req: Request, res: Response) => {
   try {
     const saved = db.saveListing(req.body);
@@ -320,8 +328,8 @@ app.post('/api/admin/listings', requireAdmin, (req: Request, res: Response) => {
   }
 });
 
-// Delete listing
-app.delete('/api/admin/listings/:id', requireAdmin, (req: Request, res: Response) => {
+// Delete listing (Owner Only - Team members cannot delete)
+app.delete('/api/admin/listings/:id', requireAdmin, requireOwner, (req: Request, res: Response) => {
   try {
     const success = db.deleteListing(req.params.id);
     res.json({ success });
@@ -355,8 +363,8 @@ app.patch('/api/admin/inquiries/:id', requireAdmin, (req: Request, res: Response
   }
 });
 
-// Delete inquiry
-app.delete('/api/admin/inquiries/:id', requireAdmin, (req: Request, res: Response) => {
+// Delete inquiry (Owner Only)
+app.delete('/api/admin/inquiries/:id', requireAdmin, requireOwner, (req: Request, res: Response) => {
   try {
     const success = db.deleteInquiry(req.params.id);
     res.json({ success });
@@ -450,8 +458,8 @@ app.post('/api/admin/faqs', requireAdmin, (req: Request, res: Response) => {
   }
 });
 
-// Delete FAQ
-app.delete('/api/admin/faqs/:id', requireAdmin, (req: Request, res: Response) => {
+// Delete FAQ (Owner Only)
+app.delete('/api/admin/faqs/:id', requireAdmin, requireOwner, (req: Request, res: Response) => {
   try {
     const success = db.deleteFAQ(req.params.id);
     res.json({ success });
@@ -460,7 +468,7 @@ app.delete('/api/admin/faqs/:id', requireAdmin, (req: Request, res: Response) =>
   }
 });
 
-// Admin Manage Categories
+// Admin Manage Categories (Add allowed for team, delete restricted to Owner)
 app.post('/api/admin/categories', requireAdmin, (req: Request, res: Response) => {
   try {
     const { name } = req.body;
@@ -475,10 +483,75 @@ app.post('/api/admin/categories', requireAdmin, (req: Request, res: Response) =>
   }
 });
 
-app.delete('/api/admin/categories/:name', requireAdmin, (req: Request, res: Response) => {
+app.delete('/api/admin/categories/:name', requireAdmin, requireOwner, (req: Request, res: Response) => {
   try {
     const success = db.deleteCategory(req.params.name);
     res.json({ success, categories: db.getCategories() });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// -------------------------------------------------------------
+// TEAM MEMBERS MANAGEMENT (OWNER ONLY)
+// -------------------------------------------------------------
+
+// Get Team Members
+app.get('/api/admin/team', requireAdmin, (req: Request, res: Response) => {
+  try {
+    const adminUser = (req as any).adminUser;
+    const teamMembers = db.getTeamMembers();
+    res.json({
+      success: true,
+      teamMembers,
+      isOwner: adminUser?.role === 'owner',
+      currentRole: adminUser?.role || 'owner',
+      currentEmail: adminUser?.email || ''
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Add Team Member (Owner Only)
+app.post('/api/admin/team', requireAdmin, requireOwner, (req: Request, res: Response) => {
+  try {
+    const { email, name } = req.body;
+    if (!email || !String(email).includes('@')) {
+      res.status(400).json({ error: 'A valid Google email address is required.' });
+      return;
+    }
+
+    const cleanEmail = String(email).toLowerCase().trim();
+    if (db.isOwnerEmail(cleanEmail)) {
+      res.status(400).json({ error: 'This email is already an Owner account.' });
+      return;
+    }
+
+    const adminUser = (req as any).adminUser;
+    const member = db.addTeamMember(cleanEmail, name, adminUser?.email || 'smartdeveloper125@gmail.com');
+    res.json({
+      success: true,
+      member,
+      message: `Access granted to ${cleanEmail}. They can now sign in to the Admin Panel via Google.`
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Remove Team Member (Owner Only)
+app.delete('/api/admin/team/:id', requireAdmin, requireOwner, (req: Request, res: Response) => {
+  try {
+    const success = db.removeTeamMember(req.params.id);
+    if (!success) {
+      res.status(404).json({ error: 'Team member not found or already removed.' });
+      return;
+    }
+    res.json({
+      success: true,
+      message: 'Team member access has been revoked successfully.'
+    });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -499,23 +572,81 @@ app.post('/api/admin/upload-image', requireAdmin, (req: Request, res: Response) 
       fs.mkdirSync(uploadsDir, { recursive: true });
     }
 
-    // If it's a data URL, extract format and buffer
-    const matches = dataUrl.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
-    if (matches && matches.length === 3) {
-      const ext = matches[1].split('/')[1] || 'png';
-      const safeName = `upload_${Date.now()}_${Math.floor(Math.random() * 1000)}.${ext}`;
+      // If it's a data URL, extract format and buffer
+      const extMatch = dataUrl.match(/^data:([A-Za-z-+\/]+);base64,/);
+      let ext = 'jpg';
+      let base64Payload = dataUrl;
+      if (extMatch) {
+        ext = extMatch[1].split('/')[1] || 'jpg';
+        base64Payload = dataUrl.substring(extMatch[0].length);
+      }
+      
+      const safeName = `img_${Date.now()}_${Math.floor(Math.random() * 1000)}.${ext}`;
       const filePath = path.join(uploadsDir, safeName);
-      fs.writeFileSync(filePath, Buffer.from(matches[2], 'base64'));
+      fs.writeFileSync(filePath, Buffer.from(base64Payload, 'base64'));
 
-      // Serve via static or dataUrl directly
-      res.json({ success: true, url: dataUrl });
-    } else {
-      res.json({ success: true, url: dataUrl });
+      const fileUrl = `/data/uploads/${safeName}`;
+      res.json({ success: true, url: fileUrl, filename: safeName });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || 'Image upload failed' });
     }
-  } catch (err: any) {
-    res.status(500).json({ error: err.message || 'Image upload failed' });
-  }
-});
+  });
+
+  // Admin Source Code / Archive File Upload Handler (.zip, .tar.gz, etc.)
+  app.post('/api/admin/upload-file', requireAdmin, (req: Request, res: Response) => {
+    try {
+      const { dataUrl, filename } = req.body;
+      if (!dataUrl) {
+        res.status(400).json({ error: 'File data is required' });
+        return;
+      }
+
+      const uploadsDir = path.resolve(__dirname, 'data', 'uploads');
+      if (!fs.existsSync(uploadsDir)) {
+        fs.mkdirSync(uploadsDir, { recursive: true });
+      }
+
+      const cleanName = (filename || 'source-code.zip').replace(/[^a-zA-Z0-9._-]/g, '_');
+      const safeName = `src_${Date.now()}_${cleanName}`;
+      const filePath = path.join(uploadsDir, safeName);
+
+      const base64Index = dataUrl.indexOf(';base64,');
+      const base64Content = base64Index !== -1 ? dataUrl.substring(base64Index + 8) : dataUrl;
+      fs.writeFileSync(filePath, Buffer.from(base64Content, 'base64'));
+
+      const fileUrl = `/data/uploads/${safeName}`;
+      res.json({ success: true, url: fileUrl, filename: cleanName });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || 'Source code file upload failed' });
+    }
+  });
+
+  // Admin Gallery Images Explorer (Fetches all available gallery/asset images)
+  app.get('/api/admin/gallery-images', requireAdmin, (_req: Request, res: Response) => {
+    try {
+      const publicImagesDir = path.resolve(__dirname, 'public/assets/images');
+      const uploadsDir = path.resolve(__dirname, 'data/uploads');
+      const images: { url: string; name: string }[] = [];
+
+      if (fs.existsSync(publicImagesDir)) {
+        const files = fs.readdirSync(publicImagesDir);
+        files.filter(f => /\.(jpg|jpeg|png|webp|svg)$/i.test(f)).forEach(f => {
+          images.push({ url: `/assets/images/${f}`, name: f });
+        });
+      }
+
+      if (fs.existsSync(uploadsDir)) {
+        const files = fs.readdirSync(uploadsDir);
+        files.filter(f => /\.(jpg|jpeg|png|webp|svg)$/i.test(f)).forEach(f => {
+          images.push({ url: `/data/uploads/${f}`, name: f });
+        });
+      }
+
+      res.json({ success: true, images });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
 
 // -------------------------------------------------------------
 // VITE DEV SERVER / STATIC HANDLER

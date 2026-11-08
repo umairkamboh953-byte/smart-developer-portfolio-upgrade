@@ -16,6 +16,9 @@ export interface WebsiteListing {
   screenshots: string[];
   liveDemoUrl: string;
   sourceCodeAvailable: boolean;
+  sourceCodeUrl?: string;
+  sourceCodeNotes?: string;
+  sourceCodeFile?: string;
   customizationAvailable: boolean;
   techStack: string[];
   includedPages: string[];
@@ -81,6 +84,23 @@ export interface SystemSettings {
   sessionToken?: string;
 }
 
+export type UserRole = 'owner' | 'member';
+
+export interface TeamMember {
+  id: string;
+  email: string;
+  name?: string;
+  role: 'member';
+  addedAt: string;
+  addedBy: string;
+}
+
+export interface SessionInfo {
+  email: string;
+  role: UserRole;
+  createdAt: string;
+}
+
 export interface FAQItem {
   id: string;
   question: string;
@@ -95,6 +115,8 @@ export interface DatabaseSchema {
   faqs: FAQItem[];
   categories: string[];
   settings: SystemSettings;
+  teamMembers?: TeamMember[];
+  sessions?: Record<string, SessionInfo>;
 }
 
 const DATA_DIR = path.resolve(process.cwd(), 'data');
@@ -413,7 +435,9 @@ class Database {
           faqs: Array.isArray(parsed.faqs) && parsed.faqs.length > 0 ? parsed.faqs : INITIAL_DB.faqs,
           categories: Array.isArray(parsed.categories) && parsed.categories.length > 0 ? parsed.categories : INITIAL_DB.categories,
           inquiries: Array.isArray(parsed.inquiries) ? parsed.inquiries : [],
-          orders: Array.isArray(parsed.orders) ? parsed.orders : []
+          orders: Array.isArray(parsed.orders) ? parsed.orders : [],
+          teamMembers: Array.isArray(parsed.teamMembers) ? parsed.teamMembers : [],
+          sessions: typeof parsed.sessions === 'object' && parsed.sessions !== null ? parsed.sessions : {}
         };
       }
     } catch (err) {
@@ -480,6 +504,9 @@ class Database {
       screenshots: listing.screenshots || [],
       liveDemoUrl: listing.liveDemoUrl || '#demo',
       sourceCodeAvailable: listing.sourceCodeAvailable !== false,
+      sourceCodeUrl: listing.sourceCodeUrl || '',
+      sourceCodeNotes: listing.sourceCodeNotes || '',
+      sourceCodeFile: listing.sourceCodeFile || '',
       customizationAvailable: listing.customizationAvailable !== false,
       techStack: listing.techStack || ['React', 'TypeScript', 'Tailwind CSS'],
       includedPages: listing.includedPages || ['Home'],
@@ -627,16 +654,36 @@ class Database {
     this.save();
   }
 
-  public generateSessionToken(): string {
+  public generateSessionToken(email: string = 'smartdeveloper125@gmail.com', role: UserRole = 'owner'): string {
     const token = crypto.randomBytes(32).toString('hex');
+    if (!this.data.sessions) {
+      this.data.sessions = {};
+    }
+    this.data.sessions[token] = {
+      email: email.toLowerCase().trim(),
+      role,
+      createdAt: new Date().toISOString()
+    };
     this.data.settings.sessionToken = token;
     this.save();
     return token;
   }
 
   public validateSessionToken(token: string): boolean {
-    if (!token || !this.data.settings.sessionToken) return false;
+    if (!token) return false;
+    if (this.data.sessions && this.data.sessions[token]) return true;
     return token === this.data.settings.sessionToken;
+  }
+
+  public getSession(token: string): SessionInfo | null {
+    if (!token) return null;
+    if (this.data.sessions && this.data.sessions[token]) {
+      return this.data.sessions[token];
+    }
+    if (token === this.data.settings.sessionToken) {
+      return { email: 'smartdeveloper125@gmail.com', role: 'owner', createdAt: new Date().toISOString() };
+    }
+    return null;
   }
 
   // FAQs
@@ -701,17 +748,91 @@ class Database {
     return false;
   }
 
-  // Authorized Admin Emails Check
-  public isAuthorizedAdminEmail(email: string): boolean {
+  // Role & Permissions Checks
+  public isOwnerEmail(email: string): boolean {
     if (!email) return false;
     const clean = email.toLowerCase().trim();
-    const authorized = [
+    const owners = [
+      'smartdeveloper125@gmail.com',
       'umairkamboh953@gmail.com',
       'smartbuy9@gmail.com',
       (this.data.settings.businessEmail || '').toLowerCase().trim()
     ].filter(Boolean);
 
-    return authorized.includes(clean);
+    return owners.includes(clean);
+  }
+
+  public isTeamMemberEmail(email: string): boolean {
+    if (!email) return false;
+    const clean = email.toLowerCase().trim();
+    const members = (this.data.teamMembers || []).map((m) => m.email.toLowerCase().trim());
+    return members.includes(clean);
+  }
+
+  public getUserRole(email: string): UserRole | null {
+    if (!email) return null;
+    const clean = email.toLowerCase().trim();
+    if (this.isOwnerEmail(clean)) return 'owner';
+    if (this.isTeamMemberEmail(clean)) return 'member';
+    return null;
+  }
+
+  public isAuthorizedAdminEmail(email: string): boolean {
+    return this.getUserRole(email) !== null;
+  }
+
+  // Team Management
+  public getTeamMembers(): TeamMember[] {
+    return this.data.teamMembers || [];
+  }
+
+  public addTeamMember(email: string, name?: string, addedBy?: string): TeamMember {
+    const cleanEmail = email.toLowerCase().trim();
+    if (!this.data.teamMembers) {
+      this.data.teamMembers = [];
+    }
+
+    const existing = this.data.teamMembers.find((m) => m.email.toLowerCase().trim() === cleanEmail);
+    if (existing) {
+      if (name) existing.name = name;
+      this.save();
+      return existing;
+    }
+
+    const newMember: TeamMember = {
+      id: `tm-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      email: cleanEmail,
+      name: name?.trim() || cleanEmail.split('@')[0],
+      role: 'member',
+      addedAt: new Date().toISOString(),
+      addedBy: addedBy || 'smartdeveloper125@gmail.com'
+    };
+
+    this.data.teamMembers.push(newMember);
+    this.save();
+    return newMember;
+  }
+
+  public removeTeamMember(idOrEmail: string): boolean {
+    if (!this.data.teamMembers) return false;
+    const clean = idOrEmail.toLowerCase().trim();
+    const initialLen = this.data.teamMembers.length;
+    this.data.teamMembers = this.data.teamMembers.filter(
+      (m) => m.id !== idOrEmail && m.email.toLowerCase().trim() !== clean
+    );
+
+    if (this.data.teamMembers.length !== initialLen) {
+      if (this.data.sessions) {
+        for (const [token, session] of Object.entries(this.data.sessions)) {
+          if (session.email.toLowerCase().trim() === clean) {
+            delete this.data.sessions[token];
+          }
+        }
+      }
+      this.save();
+      return true;
+    }
+    return false;
   }
 }
 
