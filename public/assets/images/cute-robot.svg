@@ -1,0 +1,92 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100%" height="100%">
+  <defs>
+    <!-- Background Glow & Gradients -->
+    <radialGradient id="badgeBg" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#0e172a" />
+      <stop offset="70%" stop-color="#090d16" />
+      <stop offset="100%" stop-color="#030712" />
+    </radialGradient>
+    <linearGradient id="neonRing" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00f2fe" />
+      <stop offset="50%" stop-color="#3b82f6" />
+      <stop offset="100%" stop-color="#8b5cf6" />
+    </linearGradient>
+    <linearGradient id="bodyGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" />
+      <stop offset="60%" stop-color="#f1f5f9" />
+      <stop offset="100%" stop-color="#cbd5e1" />
+    </linearGradient>
+    <linearGradient id="cyanAccent" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8" />
+      <stop offset="100%" stop-color="#06b6d4" />
+    </linearGradient>
+    <radialGradient id="eyeGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#67e8f9" />
+      <stop offset="60%" stop-color="#06b6d4" />
+      <stop offset="100%" stop-color="#0284c7" />
+    </radialGradient>
+    <filter id="softGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="1.5" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+
+  <!-- Outer Circular Badge -->
+  <circle cx="50" cy="50" r="48" fill="url(#badgeBg)" stroke="url(#neonRing)" stroke-width="2.5" />
+  
+  <!-- Subtle Tech Radar Arc -->
+  <circle cx="50" cy="50" r="42" fill="none" stroke="#38bdf8" stroke-width="0.75" stroke-dasharray="8 4 2 4" opacity="0.4" />
+
+  <!-- Antenna -->
+  <line x1="50" y1="23" x2="50" y2="15" stroke="#94a3b8" stroke-width="2.5" stroke-linecap="round" />
+  <circle cx="50" cy="14" r="3.5" fill="#00f2fe" filter="url(#softGlow)" />
+  <circle cx="49" cy="13" r="1.2" fill="#ffffff" />
+
+  <!-- Headset Band -->
+  <path d="M 23 48 C 23 28, 77 28, 77 48" fill="none" stroke="url(#cyanAccent)" stroke-width="3" stroke-linecap="round" />
+
+  <!-- Head Chassis -->
+  <rect x="25" y="27" width="50" height="42" rx="18" fill="url(#bodyGrad)" stroke="#94a3b8" stroke-width="1.2" />
+
+  <!-- Forehead Accent Sensor -->
+  <path d="M 40 30 Q 50 33 60 30" fill="none" stroke="#0ea5e9" stroke-width="2" stroke-linecap="round" />
+
+  <!-- Robot Face Screen / Visor -->
+  <rect x="29" y="36" width="42" height="28" rx="12" fill="#0b1120" />
+
+  <!-- Glowing Happy Eyes -->
+  <!-- Left Eye (Happy Curved Arch with Gloss) -->
+  <g filter="url(#softGlow)">
+    <rect x="35" y="42" width="9" height="11" rx="4.5" fill="url(#eyeGlow)" />
+    <!-- Eye Sparkle / Highlight -->
+    <circle cx="37.5" cy="45" r="1.5" fill="#ffffff" />
+    <circle cx="41" cy="49" r="0.8" fill="#ffffff" />
+  </g>
+
+  <!-- Right Eye (Happy Curved Arch with Gloss) -->
+  <g filter="url(#softGlow)">
+    <rect x="56" y="42" width="9" height="11" rx="4.5" fill="url(#eyeGlow)" />
+    <!-- Eye Sparkle / Highlight -->
+    <circle cx="58.5" cy="45" r="1.5" fill="#ffffff" />
+    <circle cx="62" cy="49" r="0.8" fill="#ffffff" />
+  </g>
+
+  <!-- Cute Rosy Blush Cheeks -->
+  <ellipse cx="34" cy="55" rx="3.5" ry="2" fill="#fb7185" opacity="0.65" />
+  <ellipse cx="66" cy="55" rx="3.5" ry="2" fill="#fb7185" opacity="0.65" />
+
+  <!-- Sweet Happy Smile -->
+  <path d="M 44 54 Q 50 60 56 54" fill="none" stroke="#38bdf8" stroke-width="2" stroke-linecap="round" filter="url(#softGlow)" />
+
+  <!-- Headphone Ear Pads -->
+  <!-- Left Ear Pad -->
+  <rect x="18" y="41" width="7" height="16" rx="3.5" fill="url(#cyanAccent)" stroke="#0369a1" stroke-width="0.8" />
+  <circle cx="21.5" cy="49" r="2" fill="#0284c7" />
+  
+  <!-- Right Ear Pad -->
+  <rect x="75" y="41" width="7" height="16" rx="3.5" fill="url(#cyanAccent)" stroke="#0369a1" stroke-width="0.8" />
+  <circle cx="78.5" cy="49" r="2" fill="#0284c7" />
+
+  <!-- Chin Connector Collar -->
+  <path d="M 36 68 Q 50 72 64 68" fill="#94a3b8" stroke="#64748b" stroke-width="1" />
+</svg>

@@ -18,7 +18,7 @@ import { AboutSection } from './components/AboutSection';
 import { LiveDemoModal } from './components/LiveDemoModal';
 import { PurchaseOrderModal } from './components/PurchaseOrderModal';
 import { OrderStatusModal } from './components/OrderStatusModal';
-import { FloatingWhatsApp } from './components/FloatingWhatsApp';
+import { FloatingChatbot } from './components/FloatingChatbot';
 import { PolicyModal } from './components/PolicyModal';
 import { AdminLoginPage } from './admin/AdminLoginPage';
 import { AdminDashboard } from './admin/AdminDashboard';
@@ -375,8 +375,8 @@ export default function App() {
         onOpenOrderStatus={() => setOrderStatusOpen(true)}
       />
 
-      {/* Floating WhatsApp Widget */}
-      <FloatingWhatsApp
+      {/* Floating Cute Robot AI Chatbot (Anchored at Bottom-Left in place of WhatsApp) */}
+      <FloatingChatbot
         settings={settings}
         hideWhenModalOpen={Boolean(activeDemoListing || activePurchaseListing || orderStatusOpen || activePolicy)}
       />

@@ -16,8 +16,89 @@
   <body class="bg-[#08090E] text-slate-100 antialiased selection:bg-blue-600/30 selection:text-blue-200">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
-    <!-- Botpress Webchat Integration -->
+    <!-- Suppress Botpress default blank launcher button inside Shadow DOM and Light DOM -->
+    <script>
+      (function() {
+        // Hook attachShadow to suppress default blank Botpress FAB inside any shadow root
+        const origAttachShadow = Element.prototype.attachShadow;
+        Element.prototype.attachShadow = function(init) {
+          const shadow = origAttachShadow.call(this, init);
+          try {
+            const style = document.createElement('style');
+            style.textContent = `
+              .bpFabWrapper, .bpFab, [data-name="fab"], .bpFabContainer, .bpUnreadMessage {
+                display: none !important;
+                opacity: 0 !important;
+                visibility: hidden !important;
+                pointer-events: none !important;
+                width: 0 !important;
+                height: 0 !important;
+                position: absolute !important;
+                left: -9999px !important;
+              }
+            `;
+            shadow.appendChild(style);
+          } catch(e) {}
+          return shadow;
+        };
+
+        const cleanBlankFab = () => {
+          document.querySelectorAll('.bpFabWrapper, .bpFab, [data-name="fab"], .bpFabContainer').forEach(function(el) {
+            el.style.setProperty('display', 'none', 'important');
+            el.style.setProperty('visibility', 'hidden', 'important');
+            el.style.setProperty('opacity', '0', 'important');
+            el.style.setProperty('pointer-events', 'none', 'important');
+          });
+          document.querySelectorAll('*').forEach(function(el) {
+            if (el.shadowRoot) {
+              el.shadowRoot.querySelectorAll('.bpFabWrapper, .bpFab, [data-name="fab"], .bpFabContainer').forEach(function(fab) {
+                fab.style.setProperty('display', 'none', 'important');
+                fab.style.setProperty('visibility', 'hidden', 'important');
+                fab.style.setProperty('opacity', '0', 'important');
+                fab.style.setProperty('pointer-events', 'none', 'important');
+              });
+            }
+          });
+        };
+
+        window.addEventListener('DOMContentLoaded', cleanBlankFab);
+        const fabCleanerInterval = setInterval(cleanBlankFab, 150);
+        setTimeout(() => clearInterval(fabCleanerInterval), 15000);
+      })();
+    </script>
+
+    <!-- Botpress Webchat Integration with Cute Robot Icon -->
     <script src="https://cdn.botpress.cloud/webchat/v5.0/inject.js"></script>
+    <script>
+      (function() {
+        const cuteRobotIcon = '/assets/images/cute-robot.jpg';
+        const setupBotpress = () => {
+          if (window.botpress && typeof window.botpress.init === 'function') {
+            const originalInit = window.botpress.init;
+            window.botpress.init = function(options) {
+              try {
+                if (options && options.configuration) {
+                  options.configuration.fabImage = cuteRobotIcon;
+                  options.configuration.botAvatar = cuteRobotIcon;
+                }
+              } catch (e) {
+                console.warn('Botpress config hook:', e);
+              }
+              return originalInit.call(this, options);
+            };
+            return true;
+          }
+          return false;
+        };
+
+        if (!setupBotpress()) {
+          const interval = setInterval(() => {
+            if (setupBotpress()) clearInterval(interval);
+          }, 20);
+          setTimeout(() => clearInterval(interval), 5000);
+        }
+      })();
+    </script>
     <script src="https://files.bpcontent.cloud/2026/10/14/05/20261014051227-28N8EKMJ.js" defer></script>
   </body>
 </html>

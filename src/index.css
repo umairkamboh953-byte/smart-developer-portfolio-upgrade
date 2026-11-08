@@ -136,3 +136,96 @@
     left: calc(24px + env(safe-area-inset-left, 0px)) !important;
   }
 }
+
+/* ------------------------------------------------------------- */
+/* Botpress Webchat Cute Robot Custom Launcher & Avatar Styling  */
+/* ------------------------------------------------------------- */
+/* Hide default Botpress generic launcher bubble so only our cute robot launcher displays */
+.bpFabWrapper,
+.bpFab,
+[data-name="fab"],
+.bpFabContainer,
+.bpUnreadMessage {
+  display: none !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  visibility: hidden !important;
+  width: 0 !important;
+  height: 0 !important;
+  position: absolute !important;
+  left: -9999px !important;
+  top: -9999px !important;
+}
+
+/* Ensure Botpress Webchat window opens cleanly when triggered on Bottom-Left */
+.bpWebchat {
+  z-index: 9999 !important;
+}
+
+@media (min-width: 768px) {
+  .bpWebchat {
+    left: 24px !important;
+    right: auto !important;
+    transform-origin: bottom left !important;
+  }
+}
+
+/* Cute Robot Floating Action Button (FAB) */
+.bpFab {
+  width: 64px !important;
+  height: 64px !important;
+  border-radius: 9999px !important;
+  background: #090d16 !important;
+  border: 2.5px solid rgba(56, 189, 248, 0.75) !important;
+  box-shadow: 0 10px 30px -4px rgba(56, 189, 248, 0.45), 0 0 24px 2px rgba(59, 130, 246, 0.35) !important;
+  overflow: hidden !important;
+  padding: 0 !important;
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.3s ease, border-color 0.3s ease !important;
+  cursor: pointer !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  will-change: transform;
+}
+
+.bpFab:hover {
+  transform: scale(1.08) translateY(-3px) !important;
+  border-color: #38bdf8 !important;
+  box-shadow: 0 14px 38px -4px rgba(56, 189, 248, 0.65), 0 0 30px 6px rgba(14, 165, 233, 0.5) !important;
+}
+
+.bpFab:active {
+  transform: scale(0.96) !important;
+}
+
+/* Robot Image inside the FAB */
+.bpFabImage {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  border-radius: 9999px !important;
+  display: block !important;
+  pointer-events: none !important;
+  user-select: none !important;
+}
+
+/* Fallback if bpFabContainer or bpFabIcon is rendered */
+.bpFabContainer,
+.bpFabIcon {
+  width: 100% !important;
+  height: 100% !important;
+  border-radius: 9999px !important;
+  background-image: url('/assets/images/cute-robot.jpg') !important;
+  background-size: cover !important;
+  background-position: center !important;
+  background-repeat: no-repeat !important;
+  display: block !important;
+}
+
+/* Cute Robot Avatar in Messages and Chat Header */
+.bpMessageAvatarImage,
+.bpHitlChipAvatarImage {
+  border-radius: 9999px !important;
+  object-fit: cover !important;
+  border: 1px solid rgba(56, 189, 248, 0.4) !important;
+}
