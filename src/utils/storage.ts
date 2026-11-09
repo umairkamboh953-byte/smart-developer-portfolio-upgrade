@@ -398,7 +398,7 @@ export const storageService = {
     let savedListing: WebsiteListing | null = null;
 
     if (token) {
-      const res = await safeFetchJson<{ success: boolean; listing: WebsiteListing }>('/api/admin/listings', {
+      const res = await safeFetchJson<{ success: boolean; listing: WebsiteListing; error?: string }>('/api/admin/listings', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -408,6 +408,10 @@ export const storageService = {
       });
       if (res.ok && res.data?.listing) {
         savedListing = res.data.listing;
+      } else {
+        const err = res.data?.error || res.error || 'Server rejected listing save';
+        console.error('saveListing error:', err);
+        throw new Error(err);
       }
     }
 

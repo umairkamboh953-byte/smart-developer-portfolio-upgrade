@@ -43,6 +43,7 @@ import {
   FolderArchive,
   Download,
   Link as LinkIcon,
+  Globe,
   Users,
   UserPlus,
   UserMinus,
@@ -99,6 +100,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   // Listing editor state
   const [editingListing, setEditingListing] = useState<Partial<WebsiteListing> | null>(null);
   const [showListingModal, setShowListingModal] = useState(false);
+  const [savingListing, setSavingListing] = useState(false);
+  const [pkrHelperInput, setPkrHelperInput] = useState('');
   const [imageUploadLoading, setImageUploadLoading] = useState(false);
   const [sourceCodeUploadLoading, setSourceCodeUploadLoading] = useState(false);
   const [galleryImages, setGalleryImages] = useState<{ url: string; name: string }[]>([]);
@@ -397,21 +400,72 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   // -------------------------------------------------------------
   // LISTING HANDLERS
   // -------------------------------------------------------------
+  const openNewListingModal = () => {
+    setPkrHelperInput('');
+    setEditingListing({
+      title: '',
+      category: categories[0] || 'E-commerce Stores',
+      shortDescription: '',
+      fullDescription: '',
+      priceUSD: 99,
+      featured: false,
+      published: true,
+      thumbnail: '/assets/images/hero_showcase_dark_1792311614014.jpg',
+      screenshots: [],
+      liveDemoUrl: '',
+      sourceCodeAvailable: true,
+      sourceCodeUrl: '',
+      sourceCodeNotes: '',
+      customizationAvailable: true,
+      techStack: ['React', 'TypeScript', 'Tailwind CSS'],
+      includedPages: ['Home', 'About', 'Contact'],
+      responsiveSpecs: '100% fluid responsive design for all devices',
+      whatYouReceive: ['Complete clean source code (ZIP)', 'Setup documentation', 'Direct developer support'],
+      customizationServices: [{ title: 'Brand styling & Logo integration', priceUSD: 49 }],
+      demoType: 'generic'
+    });
+    setShowListingModal(true);
+  };
+
   const handleSaveListing = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingListing || !editingListing.title) return;
+    if (!editingListing) return;
 
+    const trimmedTitle = (editingListing.title || '').trim();
+    if (!trimmedTitle) {
+      showNotification('Website ka Title enter karna zaroori hai.');
+      return;
+    }
+
+    const price = Number(editingListing.priceUSD) || 99;
+    const finalThumbnail = editingListing.thumbnail?.trim() || '/assets/images/hero_showcase_dark_1792311614014.jpg';
+    const finalShortDesc = editingListing.shortDescription?.trim() || `Turnkey ${editingListing.category || 'ready-made'} website package with modern responsive design.`;
+
+    const payload: Partial<WebsiteListing> = {
+      ...editingListing,
+      title: trimmedTitle,
+      priceUSD: price,
+      thumbnail: finalThumbnail,
+      shortDescription: finalShortDesc,
+      liveDemoUrl: (editingListing.liveDemoUrl || '').trim(),
+      published: editingListing.published !== false
+    };
+
+    setSavingListing(true);
     try {
-      await storageService.saveListing(editingListing, token);
-      showNotification('Website listing saved and live across entire site.');
+      await storageService.saveListing(payload, token);
+      showNotification('Website listing kamiyabi se save ho gayi aur live catalog me add ho gayi!');
       setShowListingModal(false);
       setEditingListing(null);
       if (activeTab === 'add-website') {
         setActiveTab('websites');
       }
-      fetchAdminData();
+      await fetchAdminData();
     } catch (err: any) {
+      console.error('Save listing error:', err);
       showNotification('Failed to save listing: ' + (err.message || 'Error'));
+    } finally {
+      setSavingListing(false);
     }
   };
 
@@ -783,6 +837,24 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         </div>
 
         <div className="flex items-center gap-3">
+          {/* User Role & Email Badge */}
+          <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 text-xs">
+            {userRole === 'owner' ? (
+              <span className="flex items-center gap-1.5 text-amber-300 font-bold bg-amber-500/15 border border-amber-500/30 px-2 py-0.5 rounded-lg text-[11px]">
+                <Crown className="w-3.5 h-3.5 text-amber-400" />
+                <span>Owner (Full Access)</span>
+              </span>
+            ) : (
+              <span className="flex items-center gap-1.5 text-blue-300 font-bold bg-blue-500/15 border border-blue-500/30 px-2 py-0.5 rounded-lg text-[11px]">
+                <Users className="w-3.5 h-3.5 text-blue-400" />
+                <span>Team Member (Add-Only)</span>
+              </span>
+            )}
+            <span className="text-slate-400 font-mono text-[11px] truncate max-w-[200px]" title={userEmail}>
+              {userEmail}
+            </span>
+          </div>
+
           {statusMessage && (
             <span className="hidden sm:inline-flex text-xs text-emerald-400 bg-emerald-950/60 px-2.5 py-1 rounded border border-emerald-800 animate-in fade-in">
               {statusMessage}
@@ -837,29 +909,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </button>
 
           <button
-            onClick={() => {
-              setEditingListing({
-                title: '',
-                category: categories[0] || 'E-commerce Stores',
-                shortDescription: '',
-                fullDescription: '',
-                priceUSD: 149,
-                featured: false,
-                published: true,
-                thumbnail: '/assets/images/ecommerce_luxury_store_1792311614226.jpg',
-                screenshots: [],
-                liveDemoUrl: '#demo',
-                sourceCodeAvailable: true,
-                customizationAvailable: true,
-                techStack: ['React 19', 'TypeScript', 'Tailwind CSS v4'],
-                includedPages: ['Home', 'Shop', 'Checkout'],
-                responsiveSpecs: '100% fluid responsive design',
-                whatYouReceive: ['Complete clean source code (ZIP)', 'Setup documentation', '30 days email support'],
-                customizationServices: [{ title: 'Custom Branding setup', priceUSD: 49 }],
-                demoType: 'ecommerce'
-              });
-              setShowListingModal(true);
-            }}
+            onClick={openNewListingModal}
             className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-semibold text-blue-400 hover:text-blue-300 hover:bg-blue-950/30 transition-colors cursor-pointer"
           >
             <Plus className="w-4 h-4" />
@@ -940,6 +990,21 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </div>
             <span className="text-[10px] bg-white/10 px-2 py-0.5 rounded font-mono">
               {faqs.length}
+            </span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('team')}
+            className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition-colors cursor-pointer ${
+              activeTab === 'team' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-400 hover:text-white hover:bg-white/5'
+            }`}
+          >
+            <div className="flex items-center gap-2.5">
+              <Users className="w-4 h-4 text-emerald-400" />
+              <span>Team Members</span>
+            </div>
+            <span className="text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded-full font-mono font-bold">
+              {teamMembers.length}
             </span>
           </button>
 
@@ -1127,29 +1192,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     </div>
 
                     <button
-                      onClick={() => {
-                        setEditingListing({
-                          title: '',
-                          category: categories[0] || 'E-commerce Stores',
-                          shortDescription: '',
-                          fullDescription: '',
-                          priceUSD: 149,
-                          featured: false,
-                          published: true,
-                          thumbnail: '/assets/images/ecommerce_luxury_store_1792311614226.jpg',
-                          screenshots: [],
-                          liveDemoUrl: '#demo',
-                          sourceCodeAvailable: true,
-                          customizationAvailable: true,
-                          techStack: ['React 19', 'TypeScript', 'Tailwind CSS v4'],
-                          includedPages: ['Home', 'Catalog', 'Cart', 'Checkout'],
-                          responsiveSpecs: '100% responsive for all mobile and desktop devices',
-                          whatYouReceive: ['Complete source code ZIP', 'Documentation', 'Support'],
-                          customizationServices: [{ title: 'Brand styling & Logo', priceUSD: 49 }],
-                          demoType: 'ecommerce'
-                        });
-                        setShowListingModal(true);
-                      }}
+                      onClick={openNewListingModal}
                       className="px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 self-start cursor-pointer shadow-md transition-colors"
                     >
                       <Plus className="w-4 h-4" />
@@ -1225,13 +1268,23 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                 >
                                   <Edit3 className="w-3.5 h-3.5" />
                                 </button>
-                                <button
-                                  onClick={() => handleDeleteListing(l.id)}
-                                  className="p-1.5 text-rose-400 hover:text-rose-200 bg-rose-950/40 hover:bg-rose-900/60 rounded-lg transition-colors cursor-pointer"
-                                  title="Delete Website"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </button>
+                                {userRole === 'owner' ? (
+                                  <button
+                                    onClick={() => handleDeleteListing(l.id)}
+                                    className="p-1.5 text-rose-400 hover:text-rose-200 bg-rose-950/40 hover:bg-rose-900/60 rounded-lg transition-colors cursor-pointer"
+                                    title="Delete Website"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                ) : (
+                                  <button
+                                    onClick={() => handleDeleteListing(l.id)}
+                                    className="p-1.5 text-slate-500 hover:text-slate-400 bg-white/5 rounded-lg transition-colors cursor-not-allowed opacity-60"
+                                    title="Delete restricted: Team members cannot delete listings (Owner only)"
+                                  >
+                                    <Lock className="w-3.5 h-3.5" />
+                                  </button>
+                                )}
                               </td>
                             </tr>
                           ))}
@@ -1289,13 +1342,23 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                               {count} website{count === 1 ? '' : 's'} assigned
                             </span>
                           </div>
-                          <button
-                            onClick={() => handleDeleteCategory(cat)}
-                            className="p-1.5 text-rose-400 hover:text-white bg-rose-950/30 hover:bg-rose-900/50 rounded-lg transition-colors cursor-pointer"
-                            title="Delete category"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
+                          {userRole === 'owner' ? (
+                            <button
+                              onClick={() => handleDeleteCategory(cat)}
+                              className="p-1.5 text-rose-400 hover:text-white bg-rose-950/30 hover:bg-rose-900/50 rounded-lg transition-colors cursor-pointer"
+                              title="Delete category"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => handleDeleteCategory(cat)}
+                              className="p-1.5 text-slate-500 bg-white/5 rounded-lg transition-colors cursor-not-allowed opacity-60"
+                              title="Delete restricted for team members"
+                            >
+                              <Lock className="w-3.5 h-3.5" />
+                            </button>
+                          )}
                         </div>
                       );
                     })}
@@ -1516,13 +1579,23 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                 ))}
                               </select>
 
-                              <button
-                                onClick={() => handleDeleteInquiry(msg.id)}
-                                className="p-1.5 text-rose-400 hover:text-white bg-rose-950/40 rounded-lg"
-                                title="Delete"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
+                              {userRole === 'owner' ? (
+                                <button
+                                  onClick={() => handleDeleteInquiry(msg.id)}
+                                  className="p-1.5 text-rose-400 hover:text-white bg-rose-950/40 rounded-lg cursor-pointer"
+                                  title="Delete"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              ) : (
+                                <button
+                                  onClick={() => handleDeleteInquiry(msg.id)}
+                                  className="p-1.5 text-slate-500 bg-white/5 rounded-lg cursor-not-allowed opacity-60"
+                                  title="Delete restricted for team members"
+                                >
+                                  <Lock className="w-3.5 h-3.5" />
+                                </button>
+                              )}
                             </div>
                           </div>
 
@@ -1591,13 +1664,23 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                 ))}
                               </select>
 
-                              <button
-                                onClick={() => handleDeleteInquiry(req.id)}
-                                className="p-1.5 text-rose-400 hover:text-white bg-rose-950/40 rounded-lg"
-                                title="Delete"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
+                              {userRole === 'owner' ? (
+                                <button
+                                  onClick={() => handleDeleteInquiry(req.id)}
+                                  className="p-1.5 text-rose-400 hover:text-white bg-rose-950/40 rounded-lg cursor-pointer"
+                                  title="Delete"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              ) : (
+                                <button
+                                  onClick={() => handleDeleteInquiry(req.id)}
+                                  className="p-1.5 text-slate-500 bg-white/5 rounded-lg cursor-not-allowed opacity-60"
+                                  title="Delete restricted for team members"
+                                >
+                                  <Lock className="w-3.5 h-3.5" />
+                                </button>
+                              )}
                             </div>
                           </div>
 
@@ -1782,12 +1865,23 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           >
                             <Edit3 className="w-3.5 h-3.5" />
                           </button>
-                          <button
-                            onClick={() => handleDeleteFAQ(faq.id)}
-                            className="p-1.5 text-rose-400 hover:text-white"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
+                          {userRole === 'owner' ? (
+                            <button
+                              onClick={() => handleDeleteFAQ(faq.id)}
+                              className="p-1.5 text-rose-400 hover:text-white rounded-lg cursor-pointer"
+                              title="Delete FAQ"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => handleDeleteFAQ(faq.id)}
+                              className="p-1.5 text-slate-500 bg-white/5 rounded-lg cursor-not-allowed opacity-60"
+                              title="Delete restricted for team members"
+                            >
+                              <Lock className="w-3.5 h-3.5" />
+                            </button>
+                          )}
                         </div>
                       </div>
                     ))}
@@ -1937,6 +2031,282 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   </div>
                 </div>
               )}
+
+              {/* 9. TEAM ACCESS MANAGEMENT */}
+              {activeTab === 'team' && (
+                <div className="space-y-6 animate-in fade-in duration-200 max-w-5xl">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                      <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2.5">
+                        <Users className="w-6 h-6 text-blue-400" />
+                        <span>Team Access &amp; Permissions</span>
+                      </h1>
+                      <p className="text-xs text-slate-400">
+                        smartdeveloper125@gmail.com (Owner) controls access. Team members can add listings &amp; content, but cannot delete anything.
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      {userRole === 'owner' ? (
+                        <span className="px-3 py-1.5 rounded-xl text-xs font-bold bg-amber-500/15 border border-amber-500/30 text-amber-300 flex items-center gap-1.5 shadow-sm">
+                          <Crown className="w-4 h-4 text-amber-400" />
+                          <span>Owner Mode: Full Control</span>
+                        </span>
+                      ) : (
+                        <span className="px-3 py-1.5 rounded-xl text-xs font-bold bg-blue-500/15 border border-blue-500/30 text-blue-300 flex items-center gap-1.5 shadow-sm">
+                          <ShieldAlert className="w-4 h-4 text-blue-400" />
+                          <span>Team Member: Add-Only</span>
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Primary Owner Account Banner */}
+                  <div className="p-5 rounded-2xl bg-gradient-to-r from-[#0d101e] via-[#101428] to-blue-950/30 border border-amber-500/30 shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div className="flex items-center gap-3.5">
+                      <div className="w-12 h-12 rounded-2xl bg-amber-500/20 border border-amber-500/40 text-amber-400 flex items-center justify-center shrink-0 shadow-inner">
+                        <Crown className="w-6 h-6" />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h3 className="text-sm font-bold text-white">smartdeveloper125@gmail.com</h3>
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                            Primary Owner
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-400 pt-0.5">
+                          Unrestricted Administrator: Can create, edit, delete content, and grant or revoke team access.
+                        </p>
+                      </div>
+                    </div>
+                    <span className="text-xs font-mono text-emerald-400 flex items-center gap-1.5 shrink-0 bg-emerald-500/10 px-3 py-1.5 rounded-xl border border-emerald-500/20">
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      Permanent Super Admin
+                    </span>
+                  </div>
+
+                  {/* Add New Team Member Form (Owner only) */}
+                  {userRole === 'owner' ? (
+                    <form
+                      onSubmit={handleAddTeamMember}
+                      className="p-6 rounded-2xl border border-white/10 bg-[#0d101e] space-y-4 shadow-xl"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <UserPlus className="w-4 h-4 text-emerald-400" />
+                          <h3 className="text-sm font-bold text-white uppercase tracking-wider">
+                            Grant Access to New Team Member
+                          </h3>
+                        </div>
+                        <span className="text-[11px] text-slate-400">
+                          Google Sign-In Access
+                        </span>
+                      </div>
+
+                      {teamActionError && (
+                        <div className="p-3 rounded-xl bg-rose-950/60 border border-rose-800 text-rose-200 text-xs flex items-center gap-2">
+                          <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
+                          <span>{teamActionError}</span>
+                        </div>
+                      )}
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-1.5">
+                          <label className="text-xs font-semibold text-slate-300">
+                            Google Email Address *
+                          </label>
+                          <div className="relative">
+                            <Mail className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                            <input
+                              type="email"
+                              required
+                              value={newMemberEmail}
+                              onChange={(e) => setNewMemberEmail(e.target.value)}
+                              placeholder="e.g. colleague@gmail.com"
+                              className="w-full pl-10 pr-4 py-2.5 bg-[#141829] border border-white/10 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-colors"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <label className="text-xs font-semibold text-slate-300">
+                            Member Name / Title (Optional)
+                          </label>
+                          <input
+                            type="text"
+                            value={newMemberName}
+                            onChange={(e) => setNewMemberName(e.target.value)}
+                            placeholder="e.g. Ali (Developer) / Sarah"
+                            className="w-full px-4 py-2.5 bg-[#141829] border border-white/10 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-colors"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="p-3 rounded-xl bg-blue-950/30 border border-blue-800/30 text-xs text-slate-300 flex items-start gap-2.5">
+                        <ShieldAlert className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />
+                        <span className="leading-relaxed text-[11px]">
+                          <strong>Enforced Security Policy:</strong> Team members can view the dashboard, upload source code, create website listings, and manage inquiries. Deletion of website listings, categories, FAQs, and inquiries is <strong>strictly locked and restricted</strong> to the Owner.
+                        </span>
+                      </div>
+
+                      <div className="flex justify-end pt-1">
+                        <button
+                          type="submit"
+                          disabled={teamLoading}
+                          className="px-6 py-2.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white rounded-xl text-xs font-semibold flex items-center gap-2 transition-all shadow-md shadow-blue-600/30 cursor-pointer"
+                        >
+                          {teamLoading ? (
+                            <>
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                              <span>Granting Access...</span>
+                            </>
+                          ) : (
+                            <>
+                              <UserPlus className="w-4 h-4" />
+                              <span>Grant Team Access</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </form>
+                  ) : (
+                    <div className="p-5 rounded-2xl border border-blue-800/40 bg-blue-950/20 text-xs text-blue-200 flex items-center gap-3">
+                      <Lock className="w-5 h-5 text-blue-400 shrink-0" />
+                      <span>
+                        You are logged in with Team Member permissions. Only the Primary Owner (smartdeveloper125@gmail.com) can add or remove team members.
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Active Team Members List */}
+                  <div className="p-6 rounded-2xl border border-white/10 bg-[#0d101e] space-y-4 shadow-xl">
+                    <div className="flex items-center justify-between border-b border-white/5 pb-3">
+                      <div className="flex items-center gap-2">
+                        <Users className="w-4 h-4 text-blue-400" />
+                        <h3 className="text-sm font-bold text-white uppercase tracking-wider">
+                          Active Team Members ({teamMembers.length})
+                        </h3>
+                      </div>
+                      <span className="text-[11px] text-slate-400 font-mono">
+                        Role: Add-Only Access
+                      </span>
+                    </div>
+
+                    {teamMembers.length === 0 ? (
+                      <div className="p-10 text-center rounded-xl border border-dashed border-white/10 bg-black/20 space-y-2">
+                        <Users className="w-8 h-8 text-slate-600 mx-auto" />
+                        <p className="text-xs text-slate-400">
+                          No team members added yet.
+                        </p>
+                        <p className="text-[11px] text-slate-500">
+                          Use the form above to grant access to members through their Google email address.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {teamMembers.map((member) => (
+                          <div
+                            key={member.id}
+                            className="p-4 rounded-xl bg-[#121626] border border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-colors hover:border-white/10"
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-xl bg-blue-600/20 border border-blue-500/30 text-blue-300 font-bold text-xs flex items-center justify-center shrink-0 uppercase">
+                                {member.name ? member.name.substring(0, 2) : member.email.substring(0, 2)}
+                              </div>
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <span className="font-semibold text-white text-xs">
+                                    {member.name || member.email.split('@')[0]}
+                                  </span>
+                                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-500/15 border border-blue-500/30 text-blue-300">
+                                    Team Member (Add-Only)
+                                  </span>
+                                </div>
+                                <div className="text-[11px] font-mono text-slate-400 flex items-center gap-2 pt-0.5">
+                                  <Mail className="w-3 h-3 text-slate-500" />
+                                  <span>{member.email}</span>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-3">
+                              <span className="text-[10px] text-slate-500 font-mono">
+                                Added: {new Date(member.addedAt).toLocaleDateString()}
+                              </span>
+                              {userRole === 'owner' && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveTeamMember(member.id, member.email)}
+                                  className="px-3 py-1.5 rounded-lg text-xs font-semibold text-rose-300 hover:text-white bg-rose-950/40 hover:bg-rose-900/60 border border-rose-800/40 flex items-center gap-1.5 transition-colors cursor-pointer"
+                                  title="Revoke access"
+                                >
+                                  <UserMinus className="w-3.5 h-3.5" />
+                                  <span>Remove Access</span>
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Permissions Comparison Table */}
+                  <div className="p-6 rounded-2xl border border-white/10 bg-[#0d101e] space-y-4 shadow-xl">
+                    <h3 className="text-sm font-bold text-white uppercase tracking-wider">
+                      Role Permissions Matrix
+                    </h3>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs border-collapse">
+                        <thead>
+                          <tr className="border-b border-white/10 text-slate-400 font-mono">
+                            <th className="py-2.5 px-3">Permission / Action</th>
+                            <th className="py-2.5 px-3 text-amber-300">👑 Owner (smartdeveloper125)</th>
+                            <th className="py-2.5 px-3 text-blue-300">👥 Team Members</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-white/5 text-slate-300">
+                          <tr>
+                            <td className="py-2.5 px-3 font-medium text-white">Google OAuth Login</td>
+                            <td className="py-2.5 px-3 text-emerald-400 font-semibold">Allowed (Full Access)</td>
+                            <td className="py-2.5 px-3 text-emerald-400 font-semibold">Allowed (Invited Emails)</td>
+                          </tr>
+                          <tr>
+                            <td className="py-2.5 px-3 font-medium text-white">Add Website Listings &amp; Upload Source Code</td>
+                            <td className="py-2.5 px-3 text-emerald-400">Yes (Allowed)</td>
+                            <td className="py-2.5 px-3 text-emerald-400">Yes (Allowed)</td>
+                          </tr>
+                          <tr>
+                            <td className="py-2.5 px-3 font-medium text-white">Edit Website Listings &amp; Upload Media</td>
+                            <td className="py-2.5 px-3 text-emerald-400">Yes (Allowed)</td>
+                            <td className="py-2.5 px-3 text-emerald-400">Yes (Allowed)</td>
+                          </tr>
+                          <tr>
+                            <td className="py-2.5 px-3 font-medium text-white">Add Categories &amp; FAQs</td>
+                            <td className="py-2.5 px-3 text-emerald-400">Yes (Allowed)</td>
+                            <td className="py-2.5 px-3 text-emerald-400">Yes (Allowed)</td>
+                          </tr>
+                          <tr>
+                            <td className="py-2.5 px-3 font-medium text-white">View Inquiries &amp; Manage Orders</td>
+                            <td className="py-2.5 px-3 text-emerald-400">Yes (Allowed)</td>
+                            <td className="py-2.5 px-3 text-emerald-400">Yes (Allowed)</td>
+                          </tr>
+                          <tr className="bg-rose-950/20">
+                            <td className="py-2.5 px-3 font-medium text-rose-300">Delete Websites, Categories, Inquiries, FAQs</td>
+                            <td className="py-2.5 px-3 text-emerald-400 font-bold">Yes (Owner Only)</td>
+                            <td className="py-2.5 px-3 text-rose-400 font-bold">❌ Locked (No Delete)</td>
+                          </tr>
+                          <tr className="bg-rose-950/20">
+                            <td className="py-2.5 px-3 font-medium text-rose-300">Invite &amp; Remove Team Members</td>
+                            <td className="py-2.5 px-3 text-emerald-400 font-bold">Yes (Owner Only)</td>
+                            <td className="py-2.5 px-3 text-rose-400 font-bold">❌ Locked (Restricted)</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              )}
             </>
           )}
         </main>
@@ -1966,13 +2336,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1">
-                  <label className="font-semibold text-slate-300">Website Title *</label>
+                  <label className="font-semibold text-slate-300 flex items-center justify-between">
+                    <span>Website Title *</span>
+                    <span className="text-[10px] text-slate-500">e.g. Modern E-Commerce Store</span>
+                  </label>
                   <input
                     type="text"
                     required
                     value={editingListing.title || ''}
                     onChange={(e) => setEditingListing({ ...editingListing, title: e.target.value })}
-                    className="w-full px-3 py-2 bg-[#141829] border border-white/10 rounded-lg text-xs text-white"
+                    placeholder="Enter website package name..."
+                    className="w-full px-3 py-2.5 bg-[#141829] border border-white/10 rounded-lg text-xs text-white placeholder-slate-500 focus:border-blue-500"
                   />
                 </div>
 
@@ -1981,47 +2355,185 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   <select
                     value={editingListing.category || categories[0] || 'E-commerce Stores'}
                     onChange={(e) => setEditingListing({ ...editingListing, category: e.target.value })}
-                    className="w-full px-3 py-2 bg-[#141829] border border-white/10 rounded-lg text-xs text-white cursor-pointer"
+                    className="w-full px-3 py-2.5 bg-[#141829] border border-white/10 rounded-lg text-xs text-white cursor-pointer focus:border-blue-500"
                   >
                     {categories.map((c) => (
                       <option key={c} value={c}>{c}</option>
                     ))}
                   </select>
                 </div>
+              </div>
 
-                <div className="space-y-1">
-                  <label className="font-semibold text-slate-300">Price USD ($) *</label>
-                  <input
-                    type="number"
-                    required
-                    min="1"
-                    value={editingListing.priceUSD || 99}
-                    onChange={(e) =>
-                      setEditingListing({ ...editingListing, priceUSD: parseInt(e.target.value, 10) || 0 })
-                    }
-                    className="w-full px-3 py-2 bg-[#141829] border border-white/10 rounded-lg text-xs text-white font-mono"
-                  />
+              {/* DEDICATED PRICING & CURRENCY SECTION (USD & PKR) */}
+              <div className="p-4 rounded-xl bg-gradient-to-br from-blue-950/40 via-[#101427] to-indigo-950/30 border border-blue-500/30 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-base">💰</span>
+                    <span className="font-semibold text-white text-xs">
+                      Website Price &amp; Currency (Qeemat)
+                    </span>
+                  </div>
+                  <span className="text-[10px] font-mono text-cyan-300 bg-cyan-950/60 border border-cyan-800/60 px-2 py-0.5 rounded-full">
+                    Auto USD &amp; PKR Conversion
+                  </span>
                 </div>
 
-                <div className="space-y-1">
-                  <label className="font-semibold text-slate-300">Live Demo Interactive Type</label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+                  <div className="space-y-1.5">
+                    <label className="text-slate-300 font-semibold flex items-center justify-between">
+                      <span>Price in USD ($) *</span>
+                      <span className="text-[11px] text-emerald-400 font-mono font-bold">
+                        ≈ ₨ {Math.round((Number(editingListing.priceUSD) || 0) * 278.5).toLocaleString()} PKR
+                      </span>
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold">$</span>
+                      <input
+                        type="number"
+                        min="1"
+                        step="1"
+                        value={editingListing.priceUSD !== undefined && editingListing.priceUSD !== null ? editingListing.priceUSD : ''}
+                        onChange={(e) => {
+                          const val = e.target.value === '' ? ('' as any) : Number(e.target.value);
+                          setEditingListing({ ...editingListing, priceUSD: val });
+                        }}
+                        placeholder="e.g. 99"
+                        className="w-full pl-8 pr-3 py-2.5 bg-[#141829] border border-white/15 rounded-lg text-xs text-white font-mono font-bold placeholder-slate-500 focus:border-blue-500"
+                      />
+                    </div>
+                  </div>
+
+                  {/* PKR Direct Calculator / Input Helper */}
+                  <div className="space-y-1.5">
+                    <label className="text-slate-300 font-medium flex items-center justify-between">
+                      <span>Or Enter Pakistani Rupee (₨ PKR)</span>
+                      <span className="text-[10px] text-slate-400">1 USD = ~278.5 PKR</span>
+                    </label>
+                    <div className="flex gap-2">
+                      <div className="relative flex-1">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold">₨</span>
+                        <input
+                          type="number"
+                          value={pkrHelperInput}
+                          onChange={(e) => setPkrHelperInput(e.target.value)}
+                          placeholder="e.g. 25000"
+                          className="w-full pl-8 pr-3 py-2.5 bg-[#141829] border border-white/10 rounded-lg text-xs text-white font-mono placeholder-slate-500"
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const pkr = Number(pkrHelperInput);
+                          if (pkr > 0) {
+                            const usd = Math.max(1, Math.round(pkr / 278.5));
+                            setEditingListing({ ...editingListing, priceUSD: usd });
+                            showNotification(`PKR ₨${pkr.toLocaleString()} convert ho gaya: $${usd} USD`);
+                          }
+                        }}
+                        className="px-3 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-[11px] font-semibold cursor-pointer shrink-0 transition-colors"
+                      >
+                        Set Price
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Quick Presets */}
+                <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                  <span className="text-[11px] text-slate-400 mr-1">Quick Presets:</span>
+                  {[
+                    { usd: 49, pkr: '13,600' },
+                    { usd: 99, pkr: '27,500' },
+                    { usd: 149, pkr: '41,500' },
+                    { usd: 199, pkr: '55,400' },
+                    { usd: 299, pkr: '83,200' }
+                  ].map((preset) => (
+                    <button
+                      key={preset.usd}
+                      type="button"
+                      onClick={() => setEditingListing({ ...editingListing, priceUSD: preset.usd })}
+                      className={`px-2.5 py-1 rounded-md text-[11px] font-mono transition-colors cursor-pointer border ${
+                        Number(editingListing.priceUSD) === preset.usd
+                          ? 'bg-blue-600 text-white border-blue-500'
+                          : 'bg-[#141829] text-slate-300 border-white/10 hover:border-white/30'
+                      }`}
+                    >
+                      ${preset.usd} <span className="text-[10px] text-slate-400">(₨ {preset.pkr})</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* DEDICATED LIVE WORKING DEMO LINK SECTION */}
+              <div className="p-4 rounded-xl bg-gradient-to-br from-emerald-950/30 via-[#0d161d] to-cyan-950/20 border border-emerald-500/30 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Globe className="w-4 h-4 text-emerald-400" />
+                    <span className="font-semibold text-white text-xs">
+                      Live Working Website Demo Link
+                    </span>
+                  </div>
+                  <span className="text-[10px] text-emerald-300 font-mono bg-emerald-950/60 border border-emerald-800/60 px-2.5 py-0.5 rounded-full">
+                    Live Demo Link
+                  </span>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-slate-300 font-semibold flex items-center justify-between">
+                    <span>Live Website Link (URL)</span>
+                    <span className="text-[11px] text-slate-400">Buyers click kar ke live check karenge</span>
+                  </label>
+                  <div className="flex gap-2">
+                    <div className="relative flex-1">
+                      <LinkIcon className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                      <input
+                        type="url"
+                        value={editingListing.liveDemoUrl || ''}
+                        onChange={(e) => setEditingListing({ ...editingListing, liveDemoUrl: e.target.value })}
+                        placeholder="https://mywebsite-demo.vercel.app or https://your-domain.com"
+                        className="w-full pl-9 pr-3 py-2.5 bg-[#141829] border border-white/10 rounded-lg text-xs text-white font-mono placeholder-slate-500 focus:border-emerald-500"
+                      />
+                    </div>
+                    {editingListing.liveDemoUrl && editingListing.liveDemoUrl.startsWith('http') && (
+                      <a
+                        href={editingListing.liveDemoUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shrink-0 shadow-sm"
+                      >
+                        <ExternalLink className="w-3.5 h-3.5" />
+                        <span>Test Link</span>
+                      </a>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-slate-400 leading-relaxed">
+                    Yahan apni live website ka link paste karein. Buyers &quot;Live Demo&quot; button dabane par aapki live working website dekh sakenge.
+                  </p>
+                </div>
+
+                {/* Built-in Interactive Simulator Type Fallback */}
+                <div className="space-y-1 pt-2 border-t border-white/5">
+                  <label className="text-slate-300 font-medium flex items-center justify-between">
+                    <span>Built-in Simulator Template (Fallback Type)</span>
+                    <span className="text-[10px] text-slate-400">Agar link na ho to ye mockup dikhega</span>
+                  </label>
                   <select
-                    value={editingListing.demoType || 'ecommerce'}
+                    value={editingListing.demoType || 'generic'}
                     onChange={(e) =>
                       setEditingListing({
                         ...editingListing,
                         demoType: e.target.value as any
                       })
                     }
-                    className="w-full px-3 py-2 bg-[#141829] border border-white/10 rounded-lg text-xs text-white cursor-pointer"
+                    className="w-full px-3 py-2 bg-[#141829] border border-white/10 rounded-lg text-xs text-white cursor-pointer focus:border-emerald-500"
                   >
-                    <option value="ecommerce">E-commerce (Shopping Bag & Products)</option>
-                    <option value="realestate">Real Estate (Filters & Property Cards)</option>
-                    <option value="fashion">Fashion (Streetwear Lookbook)</option>
-                    <option value="saas">SaaS (Charts & Metrics Console)</option>
-                    <option value="portfolio">Portfolio</option>
-                    <option value="restaurant">Restaurant</option>
-                    <option value="generic">Generic Showcase</option>
+                    <option value="ecommerce">E-commerce Store (Products &amp; Cart Drawer)</option>
+                    <option value="realestate">Real Estate Portal (Property Grid &amp; Filters)</option>
+                    <option value="fashion">Fashion &amp; Apparel (Lookbook &amp; Size Selector)</option>
+                    <option value="saas">SaaS Application (Analytics &amp; Dashboard)</option>
+                    <option value="portfolio">Creative Portfolio</option>
+                    <option value="restaurant">Restaurant &amp; Cafe</option>
+                    <option value="generic">Generic Modern Business Showcase</option>
                   </select>
                 </div>
               </div>
@@ -2111,10 +2623,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     <div className="flex items-center gap-2">
                       <input
                         type="text"
-                        required
                         value={editingListing.thumbnail || ''}
                         onChange={(e) => setEditingListing({ ...editingListing, thumbnail: e.target.value })}
-                        placeholder="Or enter image URL (https://...)"
+                        placeholder="Image URL or choose from gallery above..."
                         className="flex-1 px-3 py-2 bg-[#141829] border border-white/10 rounded-lg text-xs text-white font-mono placeholder-slate-500"
                       />
                     </div>
@@ -2366,9 +2877,20 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </button>
                 <button
                   type="submit"
-                  className="px-6 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-semibold shadow-md"
+                  disabled={savingListing}
+                  className="px-6 py-2.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white rounded-xl font-semibold shadow-md flex items-center gap-2 cursor-pointer transition-all active:scale-[0.98]"
                 >
-                  Save Website Package
+                  {savingListing ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin text-white" />
+                      <span>Saving Website...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Save className="w-4 h-4" />
+                      <span>Save Website Package</span>
+                    </>
+                  )}
                 </button>
               </div>
             </form>

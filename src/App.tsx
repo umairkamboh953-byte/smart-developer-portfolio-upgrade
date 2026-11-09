@@ -125,8 +125,10 @@ export default function App() {
         headers: { Authorization: `Bearer ${adminToken}` }
       })
         .then((res) => {
-          if (!res.ok && res.status === 401) {
+          if (!res.ok && (res.status === 401 || res.status === 403)) {
             localStorage.removeItem('smart_developer_admin_token');
+            localStorage.removeItem('smart_developer_admin_email');
+            localStorage.removeItem('smart_developer_admin_role');
             setAdminToken(null);
           }
         })
@@ -200,6 +202,8 @@ export default function App() {
         token={adminToken}
         onLogout={() => {
           localStorage.removeItem('smart_developer_admin_token');
+          localStorage.removeItem('smart_developer_admin_email');
+          localStorage.removeItem('smart_developer_admin_role');
           setAdminToken(null);
           navigateToPath('/admin/login');
           fetchPublicData();

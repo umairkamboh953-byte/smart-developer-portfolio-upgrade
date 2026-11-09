@@ -26,7 +26,7 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({ onClose, onLog
     setError(null);
 
     try {
-      const res = await safeFetchJson<{ success: boolean; token: string; error?: string }>('/api/admin/google-login', {
+      const res = await safeFetchJson<{ success: boolean; token: string; role?: 'owner' | 'member'; error?: string }>('/api/admin/google-login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: cleanEmail })
@@ -35,12 +35,13 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({ onClose, onLog
       if (res.ok && res.data?.token) {
         localStorage.setItem('smart_developer_admin_token', res.data.token);
         localStorage.setItem('smart_developer_admin_email', cleanEmail);
+        localStorage.setItem('smart_developer_admin_role', res.data.role || (cleanEmail === 'smartdeveloper125@gmail.com' ? 'owner' : 'member'));
         onLoginSuccess(res.data.token);
         return;
       }
 
       if (res.status === 403 || res.status === 401) {
-        throw new Error(res.error || `Access Denied: Google Account "${cleanEmail}" is not authorized. Only smartdeveloper125@gmail.com has administrator access.`);
+        throw new Error(res.error || `Access Denied: Google Account "${cleanEmail}" is not authorized. Only Owner (smartdeveloper125@gmail.com) and invited Team Members have access.`);
       }
 
       // Fallback verification for static hosting
@@ -49,12 +50,13 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({ onClose, onLog
         const clientToken = `google_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
         localStorage.setItem('smart_developer_admin_token', clientToken);
         localStorage.setItem('smart_developer_admin_email', cleanEmail);
+        localStorage.setItem('smart_developer_admin_role', cleanEmail === 'smartdeveloper125@gmail.com' ? 'owner' : 'member');
         onLoginSuccess(clientToken);
         return;
       }
 
       throw new Error(
-        `Access Denied: Google Account "${cleanEmail}" is not authorized. Only smartdeveloper125@gmail.com has full administrator access.`
+        `Access Denied: Google Account "${cleanEmail}" is not authorized. Please ask Owner (smartdeveloper125@gmail.com) to grant you team access.`
       );
     } catch (err: any) {
       setError(err.message || 'Google account not authorized.');

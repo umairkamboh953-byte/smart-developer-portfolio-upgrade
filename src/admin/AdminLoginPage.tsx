@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Lock, ShieldCheck, AlertCircle, Loader2, ArrowLeft, Mail, CheckCircle2 } from 'lucide-react';
+import { Lock, ShieldCheck, AlertCircle, Loader2, ArrowLeft, Mail, CheckCircle2, ShieldAlert } from 'lucide-react';
 import { safeFetchJson } from '../utils/api';
 
 interface AdminLoginPageProps {
@@ -7,30 +7,35 @@ interface AdminLoginPageProps {
   onNavigateHome: () => void;
 }
 
-const AUTHORIZED_ADMIN_EMAILS = [
-  'smartdeveloper125@gmail.com',
-  'umairkamboh953@gmail.com'
-];
-
 export const AdminLoginPage: React.FC<AdminLoginPageProps> = ({
   onLoginSuccess,
   onNavigateHome
 }) => {
-  const [googleEmail, setGoogleEmail] = useState('smartdeveloper125@gmail.com');
+  // Input must start completely EMPTY so no unauthorized visitor can click and enter!
+  const [googleEmail, setGoogleEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Google Sign-In Verification (Restricted strictly to smartdeveloper125@gmail.com)
-  const handleGoogleAuthSubmit = async (e?: React.FormEvent, directEmail?: string) => {
+  // Google Sign-In Verification (Strictly enforced by server: Owner & Authorized Team Members ONLY)
+  const handleGoogleAuthSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    const cleanEmail = (directEmail || googleEmail).trim().toLowerCase();
-    if (!cleanEmail) return;
+    const cleanEmail = googleEmail.trim().toLowerCase();
+    if (!cleanEmail) {
+      setError('Please enter your authorized Google email address.');
+      return;
+    }
 
     setLoading(true);
     setError(null);
 
     try {
-      const res = await safeFetchJson<{ success: boolean; token: string; error?: string }>('/api/admin/google-login', {
+      const res = await safeFetchJson<{
+        success: boolean;
+        token: string;
+        role?: 'owner' | 'member';
+        email?: string;
+        error?: string;
+      }>('/api/admin/google-login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: cleanEmail })
@@ -39,27 +44,17 @@ export const AdminLoginPage: React.FC<AdminLoginPageProps> = ({
       if (res.ok && res.data?.token) {
         localStorage.setItem('smart_developer_admin_token', res.data.token);
         localStorage.setItem('smart_developer_admin_email', cleanEmail);
+        localStorage.setItem('smart_developer_admin_role', res.data.role || 'member');
         onLoginSuccess(res.data.token);
         return;
       }
 
-      if (res.status === 403 || res.status === 401) {
-        throw new Error(res.error || `Access Denied: Google Account "${cleanEmail}" is not authorized. Only smartdeveloper125@gmail.com has administrator access.`);
-      }
-
-      // Client-side authorization check (for static hosting fallback)
-      const isAuthorized = AUTHORIZED_ADMIN_EMAILS.some((admin) => admin.toLowerCase() === cleanEmail);
-      if (isAuthorized) {
-        const clientToken = `google_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
-        localStorage.setItem('smart_developer_admin_token', clientToken);
-        localStorage.setItem('smart_developer_admin_email', cleanEmail);
-        onLoginSuccess(clientToken);
-        return;
-      }
-
-      throw new Error(
-        `Access Denied: Google Account "${cleanEmail}" is not authorized. Only smartdeveloper125@gmail.com has full administrator access.`
-      );
+      // If rejected by server, show the exact access-denied reason
+      const errMsg =
+        res.data?.error ||
+        res.error ||
+        `Access Denied: "${cleanEmail}" is not authorized. Only Owner (smartdeveloper125@gmail.com) and invited Team Members can log in.`;
+      throw new Error(errMsg);
     } catch (err: any) {
       setError(err.message || 'Google account not authorized.');
     } finally {
@@ -83,7 +78,7 @@ export const AdminLoginPage: React.FC<AdminLoginPageProps> = ({
         </button>
         <span className="text-[11px] font-mono text-emerald-400 flex items-center gap-1.5">
           <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-          Locked to Google Auth
+          Strict Google Auth
         </span>
       </div>
 
@@ -94,17 +89,17 @@ export const AdminLoginPage: React.FC<AdminLoginPageProps> = ({
             <Lock className="w-7 h-7" />
           </div>
           <h1 className="text-2xl font-bold tracking-tight text-white flex items-center justify-center gap-2">
-            Admin Panel Locked
+            Admin Access Portal
           </h1>
           <p className="text-xs text-slate-400 leading-relaxed">
-            Username and password authentication have been disabled. This admin panel is strictly locked to authorized Google administrator accounts.
+            Strict role-based access control. Password login is permanently disabled. Only authorized Google accounts are permitted.
           </p>
         </div>
 
         {error && (
           <div className="p-3.5 rounded-xl bg-rose-950/60 border border-rose-800 text-rose-200 text-xs flex items-start gap-2.5">
             <AlertCircle className="w-4 h-4 shrink-0 text-rose-400 mt-0.5" />
-            <span className="leading-relaxed">{error}</span>
+            <span className="leading-relaxed font-medium">{error}</span>
           </div>
         )}
 
@@ -113,79 +108,59 @@ export const AdminLoginPage: React.FC<AdminLoginPageProps> = ({
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-blue-300 flex items-center gap-1.5">
               <ShieldCheck className="w-4 h-4 text-emerald-400" />
-              Authorized Administrator
+              Authorized Access Policy
             </span>
             <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-300">
-              Full Access
+              Restricted
             </span>
           </div>
 
-          <div className="flex items-center gap-2.5 p-2.5 rounded-xl bg-black/40 border border-white/5">
-            <Mail className="w-4 h-4 text-blue-400 shrink-0" />
-            <span className="text-xs font-mono font-medium text-white truncate select-all">
-              smartdeveloper125@gmail.com
-            </span>
+          <div className="space-y-2 text-xs text-slate-300">
+            <div className="flex items-center gap-2 p-2 rounded-xl bg-black/40 border border-white/5">
+              <ShieldAlert className="w-4 h-4 text-amber-400 shrink-0" />
+              <div className="text-[11px] leading-tight text-slate-300">
+                <strong className="text-white">Owner:</strong> smartdeveloper125@gmail.com (Full Control)
+              </div>
+            </div>
+            <div className="flex items-center gap-2 p-2 rounded-xl bg-black/40 border border-white/5">
+              <Mail className="w-4 h-4 text-blue-400 shrink-0" />
+              <div className="text-[11px] leading-tight text-slate-300">
+                <strong className="text-white">Team Members:</strong> Must be invited by Owner (Add &amp; Edit only)
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* GOOGLE SIGN-IN ACTION */}
-        <form onSubmit={(e) => handleGoogleAuthSubmit(e)} className="space-y-4">
+        {/* GOOGLE SIGN-IN FORM */}
+        <form onSubmit={handleGoogleAuthSubmit} className="space-y-4">
           <div className="space-y-1.5">
             <label className="text-xs font-semibold text-slate-300 flex items-center justify-between">
-              <span>Google Account Email</span>
-              <span className="text-[11px] text-slate-500">Sign in with Google</span>
+              <span>Your Google Email Address</span>
+              <span className="text-[11px] text-slate-500">Google Verified</span>
             </label>
             <input
               type="email"
               required
+              autoFocus
               value={googleEmail}
-              onChange={(e) => setGoogleEmail(e.target.value)}
-              placeholder="smartdeveloper125@gmail.com"
-              className="w-full px-4 py-2.5 bg-[#14182a] border border-white/10 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-colors"
+              onChange={(e) => {
+                setGoogleEmail(e.target.value);
+                if (error) setError(null);
+              }}
+              placeholder="e.g. smartdeveloper125@gmail.com"
+              className="w-full px-4 py-3 bg-[#14182a] border border-white/10 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-colors"
             />
-          </div>
-
-          {/* Quick Select Buttons */}
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => {
-                setGoogleEmail('smartdeveloper125@gmail.com');
-                setError(null);
-              }}
-              className={`flex-1 py-1.5 px-2 rounded-lg border text-[11px] font-mono transition-colors cursor-pointer text-center truncate ${
-                googleEmail.toLowerCase() === 'smartdeveloper125@gmail.com'
-                  ? 'border-blue-500/50 bg-blue-600/20 text-blue-300'
-                  : 'border-white/5 bg-[#121626] text-slate-400 hover:text-white'
-              }`}
-            >
-              smartdeveloper125
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setGoogleEmail('umairkamboh953@gmail.com');
-                setError(null);
-              }}
-              className={`flex-1 py-1.5 px-2 rounded-lg border text-[11px] font-mono transition-colors cursor-pointer text-center truncate ${
-                googleEmail.toLowerCase() === 'umairkamboh953@gmail.com'
-                  ? 'border-blue-500/50 bg-blue-600/20 text-blue-300'
-                  : 'border-white/5 bg-[#121626] text-slate-400 hover:text-white'
-              }`}
-            >
-              umairkamboh953
-            </button>
           </div>
 
           <button
             type="submit"
-            disabled={loading}
-            className="w-full py-3.5 text-xs font-semibold text-slate-900 bg-white hover:bg-slate-100 disabled:opacity-50 rounded-xl shadow-lg shadow-white/5 transition-all flex items-center justify-center gap-3 cursor-pointer"
+            disabled={loading || !googleEmail.trim()}
+            className="w-full py-3.5 text-xs font-semibold text-slate-900 bg-white hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl shadow-lg shadow-white/5 transition-all flex items-center justify-center gap-3 cursor-pointer"
           >
             {loading ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin text-slate-900" />
-                <span>Verifying Administrator Access...</span>
+                <span>Verifying Access Rights...</span>
               </>
             ) : (
               <>
@@ -216,7 +191,7 @@ export const AdminLoginPage: React.FC<AdminLoginPageProps> = ({
         <div className="pt-2 border-t border-white/5 flex items-center justify-between text-[11px] text-slate-500">
           <span className="flex items-center gap-1.5 text-slate-400">
             <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-            256-bit Encrypted Session
+            Zero-Trust Authorization
           </span>
           <span>Smart Developer Security</span>
         </div>

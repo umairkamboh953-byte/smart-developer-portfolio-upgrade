@@ -671,17 +671,19 @@ class Database {
 
   public validateSessionToken(token: string): boolean {
     if (!token) return false;
-    if (this.data.sessions && this.data.sessions[token]) return true;
-    return token === this.data.settings.sessionToken;
+    if (this.data.sessions && this.data.sessions[token]) {
+      return this.isAuthorizedAdminEmail(this.data.sessions[token].email);
+    }
+    return false;
   }
 
   public getSession(token: string): SessionInfo | null {
     if (!token) return null;
     if (this.data.sessions && this.data.sessions[token]) {
-      return this.data.sessions[token];
-    }
-    if (token === this.data.settings.sessionToken) {
-      return { email: 'smartdeveloper125@gmail.com', role: 'owner', createdAt: new Date().toISOString() };
+      const session = this.data.sessions[token];
+      if (this.isAuthorizedAdminEmail(session.email)) {
+        return session;
+      }
     }
     return null;
   }
@@ -752,14 +754,7 @@ class Database {
   public isOwnerEmail(email: string): boolean {
     if (!email) return false;
     const clean = email.toLowerCase().trim();
-    const owners = [
-      'smartdeveloper125@gmail.com',
-      'umairkamboh953@gmail.com',
-      'smartbuy9@gmail.com',
-      (this.data.settings.businessEmail || '').toLowerCase().trim()
-    ].filter(Boolean);
-
-    return owners.includes(clean);
+    return clean === 'smartdeveloper125@gmail.com';
   }
 
   public isTeamMemberEmail(email: string): boolean {
@@ -816,23 +811,25 @@ class Database {
   public removeTeamMember(idOrEmail: string): boolean {
     if (!this.data.teamMembers) return false;
     const clean = idOrEmail.toLowerCase().trim();
-    const initialLen = this.data.teamMembers.length;
+    const target = this.data.teamMembers.find(
+      (m) => m.id === idOrEmail || m.email.toLowerCase().trim() === clean
+    );
+    if (!target) return false;
+
+    const targetEmail = target.email.toLowerCase().trim();
     this.data.teamMembers = this.data.teamMembers.filter(
-      (m) => m.id !== idOrEmail && m.email.toLowerCase().trim() !== clean
+      (m) => m.id !== target.id && m.email.toLowerCase().trim() !== targetEmail
     );
 
-    if (this.data.teamMembers.length !== initialLen) {
-      if (this.data.sessions) {
-        for (const [token, session] of Object.entries(this.data.sessions)) {
-          if (session.email.toLowerCase().trim() === clean) {
-            delete this.data.sessions[token];
-          }
+    if (this.data.sessions) {
+      for (const [token, session] of Object.entries(this.data.sessions)) {
+        if (session.email.toLowerCase().trim() === targetEmail) {
+          delete this.data.sessions[token];
         }
       }
-      this.save();
-      return true;
     }
-    return false;
+    this.save();
+    return true;
   }
 }
 

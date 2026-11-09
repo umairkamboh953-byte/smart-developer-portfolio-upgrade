@@ -32,7 +32,11 @@ const requireAdmin = (req: Request, res: Response, next: NextFunction): void => 
     return;
   }
   const session = db.getSession(token);
-  (req as any).adminUser = session || { email: 'smartdeveloper125@gmail.com', role: 'owner' };
+  if (!session) {
+    res.status(401).json({ error: 'Unauthorized: Session has expired or access was revoked' });
+    return;
+  }
+  (req as any).adminUser = session;
   next();
 };
 

@@ -12,9 +12,45 @@
     },
     "adminPasswordHash": "68e6cb4da766b2be607915e6e56a681d6f0bb89734098d0eb46c089f68dcf1d88299eb5a6dcf7675cbb1c575f95f034cd54f164741cc18f02c1f8d0d797af15f",
     "salt": "smart_developer_secure_salt_2026",
-    "sessionToken": "ccddfda5ff648008e28ae0f7701c5ef3d4fd9a73e4337d85bf34303a3ea66a62"
+    "sessionToken": "4e77da30a773b21578e68eba812161bae7208b325887178ff8c34e37cddcb308"
   },
   "listings": [
+    {
+      "id": "web-1794223552214",
+      "title": "Neon Luxe Auto — Luxury Car Dealership",
+      "slug": "neon-luxe-auto-luxury-car-dealership",
+      "category": "Business Websites",
+      "shortDescription": "High-end automotive showroom portal with inventory filters and test drive booking.",
+      "fullDescription": "Complete responsive dealership platform.",
+      "priceUSD": 179,
+      "featured": true,
+      "published": true,
+      "thumbnail": "/assets/images/hero_showcase_dark_1792311614014.jpg",
+      "screenshots": [],
+      "liveDemoUrl": "https://neon-luxe-demo.vercel.app",
+      "sourceCodeAvailable": true,
+      "sourceCodeUrl": "",
+      "sourceCodeNotes": "",
+      "sourceCodeFile": "",
+      "customizationAvailable": true,
+      "techStack": [
+        "React",
+        "TypeScript",
+        "Tailwind CSS"
+      ],
+      "includedPages": [
+        "Home"
+      ],
+      "responsiveSpecs": "Responsive layout for all devices",
+      "whatYouReceive": [
+        "Full source code",
+        "Setup documentation"
+      ],
+      "customizationServices": [],
+      "demoType": "generic",
+      "createdAt": "2026-11-09T11:25:52.214Z",
+      "updatedAt": "2026-11-09T11:25:52.214Z"
+    },
     {
       "id": "web-1",
       "title": "Aura Luxe — High-End Minimalist E-Commerce Store",
@@ -384,5 +420,18 @@
     "Business Websites",
     "Landing Pages",
     "SaaS and Web Applications"
-  ]
+  ],
+  "teamMembers": [],
+  "sessions": {
+    "6306e2d74a67fee7458b3e8b502a838010a289e23e7873bc6effc749ee0d394a": {
+      "email": "smartdeveloper125@gmail.com",
+      "role": "owner",
+      "createdAt": "2026-11-09T11:16:09.537Z"
+    },
+    "4e77da30a773b21578e68eba812161bae7208b325887178ff8c34e37cddcb308": {
+      "email": "smartdeveloper125@gmail.com",
+      "role": "owner",
+      "createdAt": "2026-11-09T11:25:52.193Z"
+    }
+  }
 }
