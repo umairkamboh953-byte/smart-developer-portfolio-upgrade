@@ -84,7 +84,7 @@ export const WebsiteCard: React.FC<WebsiteCardProps> = ({
                 Source Code
               </span>
               <span className="text-base sm:text-lg font-bold text-white font-mono tabular-nums">
-                {formatPrice(listing.priceUSD, currency)}
+                {formatPrice(listing.priceUSD, currency, listing.pricePKR)}
               </span>
             </div>
             <button

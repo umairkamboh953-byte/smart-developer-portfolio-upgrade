@@ -53,8 +53,16 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
         return true;
       })
       .sort((a, b) => {
-        if (sortBy === 'price-asc') return a.priceUSD - b.priceUSD;
-        if (sortBy === 'price-desc') return b.priceUSD - a.priceUSD;
+        if (sortBy === 'price-asc') {
+          const pA = a.pricePKR || Math.round((a.priceUSD || 0) * 278.5);
+          const pB = b.pricePKR || Math.round((b.priceUSD || 0) * 278.5);
+          return pA - pB;
+        }
+        if (sortBy === 'price-desc') {
+          const pA = a.pricePKR || Math.round((a.priceUSD || 0) * 278.5);
+          const pB = b.pricePKR || Math.round((b.priceUSD || 0) * 278.5);
+          return pB - pA;
+        }
         if (sortBy === 'newest') return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
         // Default: featured first
         return (b.featured ? 1 : 0) - (a.featured ? 1 : 0);

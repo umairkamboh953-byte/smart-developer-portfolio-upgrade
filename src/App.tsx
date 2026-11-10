@@ -35,10 +35,13 @@ export default function App() {
   const [selectedListing, setSelectedListing] = useState<WebsiteListing | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
-  // Currency
+  // Currency (Default: PKR - Pakistani Rupee)
   const [currency, setCurrency] = useState<CurrencyCode>(() => {
     const saved = localStorage.getItem('smart_dev_currency');
-    return (saved as CurrencyCode) || 'USD';
+    if (saved && ['PKR', 'USD', 'EUR', 'GBP', 'CAD', 'AUD'].includes(saved)) {
+      return saved as CurrencyCode;
+    }
+    return 'PKR';
   });
 
   const handleCurrencyChange = (newCurr: CurrencyCode) => {

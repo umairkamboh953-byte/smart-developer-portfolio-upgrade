@@ -12,17 +12,17 @@
     },
     "adminPasswordHash": "68e6cb4da766b2be607915e6e56a681d6f0bb89734098d0eb46c089f68dcf1d88299eb5a6dcf7675cbb1c575f95f034cd54f164741cc18f02c1f8d0d797af15f",
     "salt": "smart_developer_secure_salt_2026",
-    "sessionToken": "4e77da30a773b21578e68eba812161bae7208b325887178ff8c34e37cddcb308"
+    "sessionToken": "2d895574b3b8f2506e415840ee73676a00b2456970e6fa67edb09502319ce13a"
   },
   "listings": [
     {
       "id": "web-1794223552214",
-      "title": "Neon Luxe Auto — Luxury Car Dealership",
+      "title": "Neon Luxe Auto — Luxury Car Dealership (Updated)",
       "slug": "neon-luxe-auto-luxury-car-dealership",
       "category": "Business Websites",
       "shortDescription": "High-end automotive showroom portal with inventory filters and test drive booking.",
       "fullDescription": "Complete responsive dealership platform.",
-      "priceUSD": 179,
+      "priceUSD": 299,
       "featured": true,
       "published": true,
       "thumbnail": "/assets/images/hero_showcase_dark_1792311614014.jpg",
@@ -49,7 +49,8 @@
       "customizationServices": [],
       "demoType": "generic",
       "createdAt": "2026-11-09T11:25:52.214Z",
-      "updatedAt": "2026-11-09T11:25:52.214Z"
+      "updatedAt": "2026-11-10T13:19:35.720Z",
+      "pricePKR": 75000
     },
     {
       "id": "web-1",
@@ -109,7 +110,8 @@
       ],
       "demoType": "ecommerce",
       "createdAt": "2026-10-18T08:22:24.457Z",
-      "updatedAt": "2026-10-18T08:22:24.457Z"
+      "updatedAt": "2026-10-18T08:22:24.457Z",
+      "pricePKR": 35000
     },
     {
       "id": "web-2",
@@ -162,7 +164,8 @@
       ],
       "demoType": "realestate",
       "createdAt": "2026-10-18T08:22:24.457Z",
-      "updatedAt": "2026-10-18T08:22:24.457Z"
+      "updatedAt": "2026-10-18T08:22:24.457Z",
+      "pricePKR": 45000
     },
     {
       "id": "web-3",
@@ -214,7 +217,8 @@
       ],
       "demoType": "fashion",
       "createdAt": "2026-10-18T08:22:24.457Z",
-      "updatedAt": "2026-10-18T08:22:24.457Z"
+      "updatedAt": "2026-10-18T08:22:24.457Z",
+      "pricePKR": 40000
     },
     {
       "id": "web-4",
@@ -267,7 +271,8 @@
       ],
       "demoType": "saas",
       "createdAt": "2026-10-18T08:22:24.457Z",
-      "updatedAt": "2026-10-18T08:22:24.457Z"
+      "updatedAt": "2026-10-18T08:22:24.457Z",
+      "pricePKR": 50000
     },
     {
       "id": "web-5",
@@ -314,7 +319,8 @@
       ],
       "demoType": "ecommerce",
       "createdAt": "2026-10-18T08:22:24.457Z",
-      "updatedAt": "2026-10-18T08:22:24.457Z"
+      "updatedAt": "2026-10-18T08:22:24.457Z",
+      "pricePKR": 38000
     },
     {
       "id": "web-6",
@@ -361,7 +367,8 @@
       ],
       "demoType": "portfolio",
       "createdAt": "2026-10-18T08:22:24.457Z",
-      "updatedAt": "2026-10-18T08:22:24.457Z"
+      "updatedAt": "2026-10-18T08:22:24.457Z",
+      "pricePKR": 30000
     }
   ],
   "inquiries": [],
@@ -432,6 +439,11 @@
       "email": "smartdeveloper125@gmail.com",
       "role": "owner",
       "createdAt": "2026-11-09T11:25:52.193Z"
+    },
+    "2d895574b3b8f2506e415840ee73676a00b2456970e6fa67edb09502319ce13a": {
+      "email": "smartdeveloper125@gmail.com",
+      "role": "owner",
+      "createdAt": "2026-11-10T13:19:35.715Z"
     }
   }
 }

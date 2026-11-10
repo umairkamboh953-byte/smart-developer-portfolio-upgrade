@@ -58,14 +58,17 @@ export const PurchaseOrderModal: React.FC<PurchaseOrderModalProps> = ({
   const [copiedRef, setCopiedRef] = useState(false);
 
   // Compute live price
-  const basePrice = listing.priceUSD;
+  const basePriceUSD = listing.priceUSD;
+  const basePricePKR = listing.pricePKR || Math.round(listing.priceUSD * 278.5);
   const licenseMultiplier = licenseType === 'Extended Multi-Client License' ? 2.2 : 1.0;
-  const addonsTotal = selectedAddons.reduce((acc, title) => {
+  const addonsTotalUSD = selectedAddons.reduce((acc, title) => {
     const item = listing.customizationServices?.find((s) => s.title === title);
     return acc + (item ? item.priceUSD : 0);
   }, 0);
+  const addonsTotalPKR = Math.round(addonsTotalUSD * 278.5);
 
-  const totalUSD = Math.round(basePrice * licenseMultiplier + addonsTotal);
+  const totalUSD = Math.round(basePriceUSD * licenseMultiplier + addonsTotalUSD);
+  const totalPKR = Math.round(basePricePKR * licenseMultiplier + addonsTotalPKR);
 
   const toggleAddon = (title: string) => {
     if (selectedAddons.includes(title)) {
@@ -97,8 +100,8 @@ export const PurchaseOrderModal: React.FC<PurchaseOrderModalProps> = ({
           customerEmail,
           customerPhone,
           customerCountry,
-          amount: totalUSD,
-          currency: 'USD',
+          amount: currency === 'PKR' ? totalPKR : totalUSD,
+          currency: currency,
           preferredPaymentMethod: selectedMethod,
           paymentMethod: selectedMethod,
           licenseType
@@ -112,8 +115,8 @@ export const PurchaseOrderModal: React.FC<PurchaseOrderModalProps> = ({
           orderNumber: orderNum,
           websiteId: listing.id,
           websiteTitle: listing.title,
-          amount: totalUSD,
-          currency: 'USD',
+          amount: currency === 'PKR' ? totalPKR : totalUSD,
+          currency: currency,
           customerName,
           customerEmail,
           customerPhone,
@@ -377,7 +380,7 @@ export const PurchaseOrderModal: React.FC<PurchaseOrderModalProps> = ({
               <div>
                 <span className="text-[10px] sm:text-[11px] text-slate-400 block uppercase">Total Payable</span>
                 <span className="text-xl sm:text-2xl font-extrabold text-white font-mono tabular-nums">
-                  {formatPrice(totalUSD, currency)}
+                  {formatPrice(totalUSD, currency, totalPKR)}
                 </span>
                 <span className="text-[10px] text-slate-400 block">Includes 30 days developer setup support</span>
               </div>

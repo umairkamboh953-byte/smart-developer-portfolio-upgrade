@@ -130,7 +130,7 @@ export const LiveDemoModal: React.FC<LiveDemoModalProps> = ({
             className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 rounded-lg shadow-sm transition-all"
           >
             <ShoppingBag className="w-3.5 h-3.5" />
-            <span>Buy Code ({formatPrice(listing.priceUSD, currency)})</span>
+            <span>Buy Code ({formatPrice(listing.priceUSD, currency, listing.pricePKR)})</span>
           </button>
           <button
             onClick={onClose}
@@ -578,7 +578,7 @@ export const LiveDemoModal: React.FC<LiveDemoModalProps> = ({
             </div>
             <div className="flex items-center gap-3">
               <span className="font-semibold text-white font-mono">
-                {formatPrice(listing.priceUSD, currency)}
+                {formatPrice(listing.priceUSD, currency, listing.pricePKR)}
               </span>
               <button
                 onClick={() => onBuy(listing)}

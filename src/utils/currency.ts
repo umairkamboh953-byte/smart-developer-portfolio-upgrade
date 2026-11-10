@@ -1,6 +1,12 @@
 import { CurrencyCode, CurrencyConfig } from '../types';
 
 export const CURRENCIES: Record<CurrencyCode, CurrencyConfig> = {
+  PKR: {
+    code: 'PKR',
+    symbol: '₨',
+    name: 'Pakistani Rupee',
+    rateAgainstUSD: 278.5,
+  },
   USD: {
     code: 'USD',
     symbol: '$',
@@ -19,12 +25,6 @@ export const CURRENCIES: Record<CurrencyCode, CurrencyConfig> = {
     name: 'Euro',
     rateAgainstUSD: 0.92,
   },
-  PKR: {
-    code: 'PKR',
-    symbol: '₨',
-    name: 'Pakistani Rupee',
-    rateAgainstUSD: 278.5,
-  },
   CAD: {
     code: 'CAD',
     symbol: 'C$',
@@ -39,18 +39,21 @@ export const CURRENCIES: Record<CurrencyCode, CurrencyConfig> = {
   },
 };
 
-export function formatPrice(priceUSD: number, currency: CurrencyCode): string {
-  const cfg = CURRENCIES[currency] || CURRENCIES.USD;
-  const converted = priceUSD * cfg.rateAgainstUSD;
-
+export function formatPrice(priceUSD: number, currency: CurrencyCode, pricePKR?: number): string {
   if (currency === 'PKR') {
-    return `${cfg.symbol} ${Math.round(converted).toLocaleString('en-US')}`;
+    const val = pricePKR && pricePKR > 0 ? pricePKR : Math.round(priceUSD * 278.5);
+    return `₨ ${val.toLocaleString('en-US')}`;
   }
 
+  const cfg = CURRENCIES[currency] || CURRENCIES.PKR;
+  const converted = priceUSD * cfg.rateAgainstUSD;
   return `${cfg.symbol}${Math.round(converted).toLocaleString('en-US')}`;
 }
 
-export function convertAmount(priceUSD: number, currency: CurrencyCode): number {
-  const cfg = CURRENCIES[currency] || CURRENCIES.USD;
+export function convertAmount(priceUSD: number, currency: CurrencyCode, pricePKR?: number): number {
+  if (currency === 'PKR') {
+    return pricePKR && pricePKR > 0 ? pricePKR : Math.round(priceUSD * 278.5);
+  }
+  const cfg = CURRENCIES[currency] || CURRENCIES.PKR;
   return Math.round(priceUSD * cfg.rateAgainstUSD);
 }

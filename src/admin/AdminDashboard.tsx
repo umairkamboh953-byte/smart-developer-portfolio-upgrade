@@ -103,7 +103,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [savingListing, setSavingListing] = useState(false);
   const [pkrHelperInput, setPkrHelperInput] = useState('');
   const [imageUploadLoading, setImageUploadLoading] = useState(false);
-  const [sourceCodeUploadLoading, setSourceCodeUploadLoading] = useState(false);
   const [galleryImages, setGalleryImages] = useState<{ url: string; name: string }[]>([]);
   const [showMediaPickerModal, setShowMediaPickerModal] = useState<false | 'thumbnail' | 'screenshot'>(false);
 
@@ -315,51 +314,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     reader.readAsDataURL(file);
   };
 
-  // Source Code File Upload handler (.zip, .tar.gz, etc.)
-  const handleSourceCodeUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
 
-    setSourceCodeUploadLoading(true);
-    const reader = new FileReader();
-    reader.onload = async () => {
-      try {
-        const base64Data = reader.result as string;
-        const res = await safeFetchJson<{ success: boolean; url: string; filename: string }>('/api/admin/upload-file', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`
-          },
-          body: JSON.stringify({ dataUrl: base64Data, filename: file.name })
-        });
-
-        if (res.ok && res.data?.url) {
-          if (editingListing) {
-            setEditingListing({
-              ...editingListing,
-              sourceCodeUrl: res.data.url,
-              sourceCodeFile: file.name
-            });
-            showNotification(`Source code package "${file.name}" uploaded successfully!`);
-          }
-        } else {
-          if (editingListing) {
-            setEditingListing({
-              ...editingListing,
-              sourceCodeFile: file.name
-            });
-            showNotification(`File "${file.name}" selected.`);
-          }
-        }
-      } catch (err: any) {
-        showNotification('Source code upload error: ' + (err.message || 'Check connection'));
-      } finally {
-        setSourceCodeUploadLoading(false);
-      }
-    };
-    reader.readAsDataURL(file);
-  };
 
   // Fetch gallery images
   const fetchGalleryImages = async () => {
@@ -407,7 +362,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       category: categories[0] || 'E-commerce Stores',
       shortDescription: '',
       fullDescription: '',
-      priceUSD: 99,
+      pricePKR: 25000,
+      priceUSD: 90,
       featured: false,
       published: true,
       thumbnail: '/assets/images/hero_showcase_dark_1792311614014.jpg',
@@ -437,17 +393,20 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       return;
     }
 
-    const price = Number(editingListing.priceUSD) || 99;
+    const pkr = Number(editingListing.pricePKR) || (editingListing.priceUSD ? Math.round(Number(editingListing.priceUSD) * 278.5) : 25000);
+    const usd = Math.round(pkr / 278.5) || 90;
     const finalThumbnail = editingListing.thumbnail?.trim() || '/assets/images/hero_showcase_dark_1792311614014.jpg';
     const finalShortDesc = editingListing.shortDescription?.trim() || `Turnkey ${editingListing.category || 'ready-made'} website package with modern responsive design.`;
 
     const payload: Partial<WebsiteListing> = {
       ...editingListing,
       title: trimmedTitle,
-      priceUSD: price,
+      pricePKR: pkr,
+      priceUSD: usd,
       thumbnail: finalThumbnail,
       shortDescription: finalShortDesc,
       liveDemoUrl: (editingListing.liveDemoUrl || '').trim(),
+      sourceCodeUrl: (editingListing.sourceCodeUrl || '').trim(),
       published: editingListing.published !== false
     };
 
@@ -1209,7 +1168,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                             <th className="p-4">Thumbnail</th>
                             <th className="p-4">Title & Slug</th>
                             <th className="p-4">Category</th>
-                            <th className="p-4">Price</th>
+                            <th className="p-4">Price (PKR)</th>
                             <th className="p-4">Featured</th>
                             <th className="p-4">Status</th>
                             <th className="p-4 text-right">Actions</th>
@@ -1234,7 +1193,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                 <span className="text-[11px] text-slate-500 font-mono">{l.slug}</span>
                               </td>
                               <td className="p-4 text-slate-300">{l.category}</td>
-                              <td className="p-4 font-mono font-bold text-white">${l.priceUSD}</td>
+                              <td className="p-4 font-mono font-bold text-emerald-400">
+                                ₨ {(l.pricePKR || Math.round(l.priceUSD * 278.5)).toLocaleString()}
+                              </td>
                               <td className="p-4">
                                 {l.featured ? (
                                   <span className="text-amber-400 flex items-center gap-1 text-[11px]">
@@ -1260,7 +1221,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                               <td className="p-4 text-right space-x-2">
                                 <button
                                   onClick={() => {
-                                    setEditingListing(l);
+                                    const pkrVal = l.pricePKR || Math.round((Number(l.priceUSD) || 99) * 278.5);
+                                    setEditingListing({
+                                      ...l,
+                                      pricePKR: pkrVal,
+                                      priceUSD: l.priceUSD || Math.round(pkrVal / 278.5)
+                                    });
                                     setShowListingModal(true);
                                   }}
                                   className="p-1.5 text-slate-300 hover:text-white bg-white/5 hover:bg-white/10 rounded-lg transition-colors cursor-pointer"
@@ -2314,7 +2280,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
       {/* Website Listing Create / Edit Modal (With Image Upload Support) */}
       {showListingModal && editingListing && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md overflow-y-auto">
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/85 backdrop-blur-md p-4 sm:p-6 flex justify-center items-start">
           <div className="relative w-full max-w-3xl bg-[#0c0f1e] border border-white/10 rounded-3xl p-6 sm:p-8 shadow-2xl text-slate-100 my-8">
             <button
               onClick={() => {
@@ -2328,34 +2294,40 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
             <form onSubmit={handleSaveListing} className="space-y-5 text-xs">
               <div>
-                <h3 className="text-lg font-bold text-white">
-                  {editingListing.id ? 'Edit Website Listing' : 'Add New Website Package'}
+                <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                  <span>{editingListing.id ? 'Edit Website Listing' : 'Add New Website Package'}</span>
+                  {editingListing.id && (
+                    <span className="text-xs font-mono text-blue-400 bg-blue-950/60 border border-blue-800/60 px-2 py-0.5 rounded-md">
+                      ID: {editingListing.id}
+                    </span>
+                  )}
                 </h3>
-                <p className="text-slate-400">Configure marketplace presentation, tech stack, price, and deliverables.</p>
+                <p className="text-slate-400 mt-0.5">Website ka title, category, qeemat (price), live demo URL aur details set karein.</p>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <label className="font-semibold text-slate-300 flex items-center justify-between">
+              {/* ROW 1: BASIC INFO */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="space-y-1.5 sm:col-span-2">
+                  <label className="font-bold text-slate-200 text-xs flex items-center justify-between">
                     <span>Website Title *</span>
-                    <span className="text-[10px] text-slate-500">e.g. Modern E-Commerce Store</span>
+                    <span className="text-[10px] text-slate-500 font-normal">e.g. Aura Luxe Luxury E-Commerce</span>
                   </label>
                   <input
                     type="text"
                     required
                     value={editingListing.title || ''}
                     onChange={(e) => setEditingListing({ ...editingListing, title: e.target.value })}
-                    placeholder="Enter website package name..."
-                    className="w-full px-3 py-2.5 bg-[#141829] border border-white/10 rounded-lg text-xs text-white placeholder-slate-500 focus:border-blue-500"
+                    placeholder="Enter website title..."
+                    className="w-full px-3.5 py-2.5 bg-[#141829] border border-white/15 rounded-xl text-xs text-white placeholder-slate-500 focus:border-blue-500 font-medium"
                   />
                 </div>
 
-                <div className="space-y-1">
-                  <label className="font-semibold text-slate-300">Category *</label>
+                <div className="space-y-1.5">
+                  <label className="font-bold text-slate-200 text-xs">Category *</label>
                   <select
                     value={editingListing.category || categories[0] || 'E-commerce Stores'}
                     onChange={(e) => setEditingListing({ ...editingListing, category: e.target.value })}
-                    className="w-full px-3 py-2.5 bg-[#141829] border border-white/10 rounded-lg text-xs text-white cursor-pointer focus:border-blue-500"
+                    className="w-full px-3 py-2.5 bg-[#141829] border border-white/15 rounded-xl text-xs text-white cursor-pointer focus:border-blue-500"
                   >
                     {categories.map((c) => (
                       <option key={c} value={c}>{c}</option>
@@ -2364,178 +2336,141 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </div>
               </div>
 
-              {/* DEDICATED PRICING & CURRENCY SECTION (USD & PKR) */}
-              <div className="p-4 rounded-xl bg-gradient-to-br from-blue-950/40 via-[#101427] to-indigo-950/30 border border-blue-500/30 space-y-3">
+              {/* ROW 2: DEDICATED PRICE INPUT IN PKR (PAKISTANI RUPEES) */}
+              <div className="p-4 rounded-2xl bg-gradient-to-r from-emerald-950/50 via-[#12162a] to-teal-950/40 border border-emerald-500/40 space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <span className="text-base">💰</span>
-                    <span className="font-semibold text-white text-xs">
-                      Website Price &amp; Currency (Qeemat)
-                    </span>
+                    <span className="text-lg">💵</span>
+                    <label className="font-bold text-white text-xs tracking-wide">
+                      Website Price / Qeemat (₨ PKR) *
+                    </label>
                   </div>
-                  <span className="text-[10px] font-mono text-cyan-300 bg-cyan-950/60 border border-cyan-800/60 px-2 py-0.5 rounded-full">
-                    Auto USD &amp; PKR Conversion
+                  <span className="text-xs font-mono font-bold text-cyan-400 bg-cyan-950/70 border border-cyan-800/60 px-2.5 py-0.5 rounded-full">
+                    ≈ ${Math.round((Number(editingListing.pricePKR) || (Number(editingListing.priceUSD) || 0) * 278.5) / 278.5)} USD
                   </span>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
-                  <div className="space-y-1.5">
-                    <label className="text-slate-300 font-semibold flex items-center justify-between">
-                      <span>Price in USD ($) *</span>
-                      <span className="text-[11px] text-emerald-400 font-mono font-bold">
-                        ≈ ₨ {Math.round((Number(editingListing.priceUSD) || 0) * 278.5).toLocaleString()} PKR
-                      </span>
-                    </label>
-                    <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold">$</span>
-                      <input
-                        type="number"
-                        min="1"
-                        step="1"
-                        value={editingListing.priceUSD !== undefined && editingListing.priceUSD !== null ? editingListing.priceUSD : ''}
-                        onChange={(e) => {
-                          const val = e.target.value === '' ? ('' as any) : Number(e.target.value);
-                          setEditingListing({ ...editingListing, priceUSD: val });
-                        }}
-                        placeholder="e.g. 99"
-                        className="w-full pl-8 pr-3 py-2.5 bg-[#141829] border border-white/15 rounded-lg text-xs text-white font-mono font-bold placeholder-slate-500 focus:border-blue-500"
-                      />
-                    </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-center">
+                  <div className="relative">
+                    <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-emerald-400 font-bold text-sm">₨</span>
+                    <input
+                      type="number"
+                      min="500"
+                      step="500"
+                      required
+                      value={
+                        editingListing.pricePKR !== undefined && editingListing.pricePKR !== null
+                          ? editingListing.pricePKR
+                          : (editingListing.priceUSD ? Math.round(Number(editingListing.priceUSD) * 278.5) : '')
+                      }
+                      onChange={(e) => {
+                        const val = e.target.value === '' ? ('' as any) : Number(e.target.value);
+                        setEditingListing({
+                          ...editingListing,
+                          pricePKR: val,
+                          priceUSD: val ? Math.round(Number(val) / 278.5) : 0
+                        });
+                      }}
+                      placeholder="e.g. 25000"
+                      className="w-full pl-9 pr-3 py-2.5 bg-[#181d33] border border-emerald-500/40 rounded-xl text-sm text-white font-mono font-bold placeholder-slate-500 focus:border-emerald-500 shadow-inner"
+                    />
                   </div>
 
-                  {/* PKR Direct Calculator / Input Helper */}
-                  <div className="space-y-1.5">
-                    <label className="text-slate-300 font-medium flex items-center justify-between">
-                      <span>Or Enter Pakistani Rupee (₨ PKR)</span>
-                      <span className="text-[10px] text-slate-400">1 USD = ~278.5 PKR</span>
-                    </label>
-                    <div className="flex gap-2">
-                      <div className="relative flex-1">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold">₨</span>
-                        <input
-                          type="number"
-                          value={pkrHelperInput}
-                          onChange={(e) => setPkrHelperInput(e.target.value)}
-                          placeholder="e.g. 25000"
-                          className="w-full pl-8 pr-3 py-2.5 bg-[#141829] border border-white/10 rounded-lg text-xs text-white font-mono placeholder-slate-500"
-                        />
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const pkr = Number(pkrHelperInput);
-                          if (pkr > 0) {
-                            const usd = Math.max(1, Math.round(pkr / 278.5));
-                            setEditingListing({ ...editingListing, priceUSD: usd });
-                            showNotification(`PKR ₨${pkr.toLocaleString()} convert ho gaya: $${usd} USD`);
-                          }
-                        }}
-                        className="px-3 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-[11px] font-semibold cursor-pointer shrink-0 transition-colors"
-                      >
-                        Set Price
-                      </button>
-                    </div>
+                  {/* Quick PKR price presets */}
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="text-[10px] text-slate-400 mr-1">Presets:</span>
+                    {[15000, 25000, 35000, 50000, 75000, 100000].map((p) => {
+                      const currentVal = Number(editingListing.pricePKR) || (editingListing.priceUSD ? Math.round(Number(editingListing.priceUSD) * 278.5) : 0);
+                      const isSelected = currentVal === p;
+                      return (
+                        <button
+                          key={p}
+                          type="button"
+                          onClick={() => setEditingListing({
+                            ...editingListing,
+                            pricePKR: p,
+                            priceUSD: Math.round(p / 278.5)
+                          })}
+                          className={`px-2.5 py-1.5 rounded-lg text-xs font-mono font-semibold border transition-all cursor-pointer ${
+                            isSelected
+                              ? 'bg-emerald-600 text-white border-emerald-500 shadow-md shadow-emerald-600/30'
+                              : 'bg-[#181d33] text-slate-300 border-white/10 hover:border-white/30'
+                          }`}
+                        >
+                          ₨ {p >= 1000 ? `${p / 1000}k` : p}
+                        </button>
+                      );
+                    })}
                   </div>
-                </div>
-
-                {/* Quick Presets */}
-                <div className="flex flex-wrap items-center gap-1.5 pt-1">
-                  <span className="text-[11px] text-slate-400 mr-1">Quick Presets:</span>
-                  {[
-                    { usd: 49, pkr: '13,600' },
-                    { usd: 99, pkr: '27,500' },
-                    { usd: 149, pkr: '41,500' },
-                    { usd: 199, pkr: '55,400' },
-                    { usd: 299, pkr: '83,200' }
-                  ].map((preset) => (
-                    <button
-                      key={preset.usd}
-                      type="button"
-                      onClick={() => setEditingListing({ ...editingListing, priceUSD: preset.usd })}
-                      className={`px-2.5 py-1 rounded-md text-[11px] font-mono transition-colors cursor-pointer border ${
-                        Number(editingListing.priceUSD) === preset.usd
-                          ? 'bg-blue-600 text-white border-blue-500'
-                          : 'bg-[#141829] text-slate-300 border-white/10 hover:border-white/30'
-                      }`}
-                    >
-                      ${preset.usd} <span className="text-[10px] text-slate-400">(₨ {preset.pkr})</span>
-                    </button>
-                  ))}
                 </div>
               </div>
 
-              {/* DEDICATED LIVE WORKING DEMO LINK SECTION */}
-              <div className="p-4 rounded-xl bg-gradient-to-br from-emerald-950/30 via-[#0d161d] to-cyan-950/20 border border-emerald-500/30 space-y-3">
+              {/* ROW 3: LIVE WORKING WEBSITE DEMO LINK */}
+              <div className="p-4 rounded-2xl bg-gradient-to-r from-emerald-950/40 via-[#0e1722] to-cyan-950/30 border border-emerald-500/40 space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Globe className="w-4 h-4 text-emerald-400" />
-                    <span className="font-semibold text-white text-xs">
-                      Live Working Website Demo Link
-                    </span>
+                    <label className="font-bold text-white text-xs">
+                      Live Working Website Demo Link (URL)
+                    </label>
                   </div>
                   <span className="text-[10px] text-emerald-300 font-mono bg-emerald-950/60 border border-emerald-800/60 px-2.5 py-0.5 rounded-full">
                     Live Demo Link
                   </span>
                 </div>
 
-                <div className="space-y-1.5">
-                  <label className="text-slate-300 font-semibold flex items-center justify-between">
-                    <span>Live Website Link (URL)</span>
-                    <span className="text-[11px] text-slate-400">Buyers click kar ke live check karenge</span>
-                  </label>
-                  <div className="flex gap-2">
-                    <div className="relative flex-1">
-                      <LinkIcon className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
-                      <input
-                        type="url"
-                        value={editingListing.liveDemoUrl || ''}
-                        onChange={(e) => setEditingListing({ ...editingListing, liveDemoUrl: e.target.value })}
-                        placeholder="https://mywebsite-demo.vercel.app or https://your-domain.com"
-                        className="w-full pl-9 pr-3 py-2.5 bg-[#141829] border border-white/10 rounded-lg text-xs text-white font-mono placeholder-slate-500 focus:border-emerald-500"
-                      />
-                    </div>
-                    {editingListing.liveDemoUrl && editingListing.liveDemoUrl.startsWith('http') && (
-                      <a
-                        href={editingListing.liveDemoUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shrink-0 shadow-sm"
-                      >
-                        <ExternalLink className="w-3.5 h-3.5" />
-                        <span>Test Link</span>
-                      </a>
-                    )}
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <LinkIcon className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="url"
+                      value={editingListing.liveDemoUrl || ''}
+                      onChange={(e) => setEditingListing({ ...editingListing, liveDemoUrl: e.target.value })}
+                      placeholder="https://my-website-demo.vercel.app or https://your-domain.com"
+                      className="w-full pl-9 pr-3 py-2.5 bg-[#141829] border border-white/15 rounded-xl text-xs text-white font-mono placeholder-slate-500 focus:border-emerald-500"
+                    />
                   </div>
-                  <p className="text-[11px] text-slate-400 leading-relaxed">
-                    Yahan apni live website ka link paste karein. Buyers &quot;Live Demo&quot; button dabane par aapki live working website dekh sakenge.
-                  </p>
+                  {editingListing.liveDemoUrl && editingListing.liveDemoUrl.startsWith('http') && (
+                    <a
+                      href={editingListing.liveDemoUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors shrink-0 shadow-sm"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                      <span>Test Link</span>
+                    </a>
+                  )}
                 </div>
+                <p className="text-[11px] text-slate-400">
+                  Yahan live website ka link paste karein taake buyers button dabane par aapki live working website dekh sakein. (Agar link na ho to built-in simulator mockup dikhega).
+                </p>
+              </div>
 
-                {/* Built-in Interactive Simulator Type Fallback */}
-                <div className="space-y-1 pt-2 border-t border-white/5">
-                  <label className="text-slate-300 font-medium flex items-center justify-between">
-                    <span>Built-in Simulator Template (Fallback Type)</span>
-                    <span className="text-[10px] text-slate-400">Agar link na ho to ye mockup dikhega</span>
-                  </label>
-                  <select
-                    value={editingListing.demoType || 'generic'}
-                    onChange={(e) =>
-                      setEditingListing({
-                        ...editingListing,
-                        demoType: e.target.value as any
-                      })
-                    }
-                    className="w-full px-3 py-2 bg-[#141829] border border-white/10 rounded-lg text-xs text-white cursor-pointer focus:border-emerald-500"
-                  >
-                    <option value="ecommerce">E-commerce Store (Products &amp; Cart Drawer)</option>
-                    <option value="realestate">Real Estate Portal (Property Grid &amp; Filters)</option>
-                    <option value="fashion">Fashion &amp; Apparel (Lookbook &amp; Size Selector)</option>
-                    <option value="saas">SaaS Application (Analytics &amp; Dashboard)</option>
-                    <option value="portfolio">Creative Portfolio</option>
-                    <option value="restaurant">Restaurant &amp; Cafe</option>
-                    <option value="generic">Generic Modern Business Showcase</option>
-                  </select>
-                </div>
+              {/* Built-in Interactive Simulator Type Fallback */}
+              <div className="space-y-1.5">
+                <label className="text-slate-300 font-semibold flex items-center justify-between text-xs">
+                  <span>Built-in Simulator Template (Fallback Mockup Type)</span>
+                  <span className="text-[10px] text-slate-500">Agar link na ho to ye theme preview chalegi</span>
+                </label>
+                <select
+                  value={editingListing.demoType || 'generic'}
+                  onChange={(e) =>
+                    setEditingListing({
+                      ...editingListing,
+                      demoType: e.target.value as any
+                    })
+                  }
+                  className="w-full px-3 py-2.5 bg-[#141829] border border-white/10 rounded-xl text-xs text-white cursor-pointer focus:border-blue-500"
+                >
+                  <option value="ecommerce">E-commerce Store (Products &amp; Cart Drawer)</option>
+                  <option value="realestate">Real Estate Portal (Property Grid &amp; Filters)</option>
+                  <option value="fashion">Fashion &amp; Apparel (Lookbook &amp; Size Selector)</option>
+                  <option value="saas">SaaS Application (Analytics &amp; Dashboard)</option>
+                  <option value="portfolio">Creative Portfolio</option>
+                  <option value="restaurant">Restaurant &amp; Cafe</option>
+                  <option value="generic">Generic Modern Business Showcase</option>
+                </select>
               </div>
 
               {/* Thumbnail Image input + Gallery Upload options */}
@@ -2739,96 +2674,67 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </div>
               </div>
 
-              {/* SOURCE CODE & DELIVERABLES CONFIGURATION */}
-              <div className="p-4 rounded-xl bg-gradient-to-br from-indigo-950/40 to-blue-950/30 border border-indigo-500/30 space-y-3">
+              {/* SOURCE CODE & GITHUB REPOSITORY LINK — ONLY GITHUB REPO LINK, NO FILE UPLOADS */}
+              <div className="p-4 rounded-xl bg-gradient-to-br from-purple-950/40 to-indigo-950/30 border border-purple-500/30 space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <FileCode className="w-4 h-4 text-cyan-400" />
-                    <span className="font-semibold text-slate-200 text-xs">
-                      Website Source Code & Deliverable Package
+                    <FileCode className="w-4 h-4 text-purple-400" />
+                    <span className="font-semibold text-white text-xs">
+                      GitHub Repository Link (Source Code)
                     </span>
                   </div>
-                  <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-emerald-400">
-                    <input
-                      type="checkbox"
-                      checked={editingListing.sourceCodeAvailable !== false}
-                      onChange={(e) => setEditingListing({ ...editingListing, sourceCodeAvailable: e.target.checked })}
-                      className="rounded text-blue-600 focus:ring-0"
-                    />
-                    <span>Source Code Ready to Deliver</span>
-                  </label>
+                  <span className="text-[10px] text-purple-300 font-mono bg-purple-950/70 border border-purple-700/50 px-2.5 py-0.5 rounded-full">
+                    GitHub Repo Link Only
+                  </span>
                 </div>
 
-                {editingListing.sourceCodeAvailable !== false && (
-                  <div className="space-y-3 pt-2 text-xs">
-                    {/* Source Code Download or Repository Link */}
-                    <div className="space-y-1">
-                      <label className="text-slate-300 font-medium flex items-center justify-between">
-                        <span>Source Code Download / Repository Link</span>
-                        <span className="text-[11px] text-slate-400">GitHub, Google Drive, Dropbox, or Direct ZIP URL</span>
-                      </label>
-                      <div className="flex gap-2">
-                        <div className="relative flex-1">
-                          <LinkIcon className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
-                          <input
-                            type="text"
-                            value={editingListing.sourceCodeUrl || ''}
-                            onChange={(e) => setEditingListing({ ...editingListing, sourceCodeUrl: e.target.value })}
-                            placeholder="https://github.com/... or https://drive.google.com/..."
-                            className="w-full pl-9 pr-3 py-2 bg-[#141829] border border-white/10 rounded-lg text-xs text-white font-mono placeholder-slate-500 focus:border-indigo-500"
-                          />
-                        </div>
-
-                        {/* Direct ZIP / Archive File Upload from Device */}
-                        <label className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold cursor-pointer flex items-center gap-1.5 shrink-0 transition-colors shadow-sm">
-                          {sourceCodeUploadLoading ? (
-                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                          ) : (
-                            <FolderArchive className="w-3.5 h-3.5" />
-                          )}
-                          <span>{sourceCodeUploadLoading ? 'Uploading...' : '📦 Upload ZIP'}</span>
-                          <input
-                            type="file"
-                            accept=".zip,.rar,.tar.gz,.7z,.tar"
-                            onChange={handleSourceCodeUpload}
-                            className="hidden"
-                            disabled={sourceCodeUploadLoading}
-                          />
-                        </label>
+                <div className="space-y-3 pt-1 text-xs">
+                  {/* GitHub Repo URL input */}
+                  <div className="space-y-1.5">
+                    <label className="text-slate-300 font-semibold flex items-center justify-between">
+                      <span>GitHub Repository URL *</span>
+                      <span className="text-[11px] text-slate-400">e.g. https://github.com/username/repo-name</span>
+                    </label>
+                    <div className="flex gap-2">
+                      <div className="relative flex-1">
+                        <LinkIcon className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                        <input
+                          type="url"
+                          value={editingListing.sourceCodeUrl || ''}
+                          onChange={(e) => setEditingListing({ ...editingListing, sourceCodeUrl: e.target.value })}
+                          placeholder="https://github.com/smartdeveloper/ecommerce-website"
+                          className="w-full pl-9 pr-3 py-2.5 bg-[#141829] border border-white/15 rounded-xl text-xs text-white font-mono placeholder-slate-500 focus:border-purple-500"
+                        />
                       </div>
-
-                      {/* Display attached file badge if present */}
-                      {editingListing.sourceCodeFile && (
-                        <div className="flex items-center gap-2 text-[11px] text-emerald-400 bg-emerald-950/40 border border-emerald-800/40 px-2.5 py-1 rounded-md mt-1">
-                          <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
-                          <span>Attached File: <strong>{editingListing.sourceCodeFile}</strong></span>
-                          {editingListing.sourceCodeUrl && (
-                            <a
-                              href={editingListing.sourceCodeUrl}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="text-cyan-400 underline ml-auto text-[10px]"
-                            >
-                              Test Download Link
-                            </a>
-                          )}
-                        </div>
+                      {editingListing.sourceCodeUrl && editingListing.sourceCodeUrl.startsWith('http') && (
+                        <a
+                          href={editingListing.sourceCodeUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="px-3.5 py-2.5 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 shrink-0 transition-colors"
+                        >
+                          <ExternalLink className="w-3.5 h-3.5" />
+                          <span>Open Repo ↗</span>
+                        </a>
                       )}
                     </div>
-
-                    {/* Source Code Delivery Notes / Readme / Setup instructions */}
-                    <div className="space-y-1">
-                      <label className="text-slate-300 font-medium">Source Code Readme & Delivery Notes (Sent to Buyer)</label>
-                      <textarea
-                        rows={2}
-                        value={editingListing.sourceCodeNotes || ''}
-                        onChange={(e) => setEditingListing({ ...editingListing, sourceCodeNotes: e.target.value })}
-                        placeholder="Setup instructions, node version, environment variables, or license keys..."
-                        className="w-full px-3 py-2 bg-[#141829] border border-white/10 rounded-lg text-xs text-white placeholder-slate-500 leading-relaxed"
-                      />
-                    </div>
+                    <p className="text-[11px] text-slate-400 leading-relaxed">
+                      Source code ke liye sirf GitHub repository ka link aayega (code ya ZIP file upload karne ki zaroorat nahi hai). Payment verify hone par buyer ko yehi repo access diya jata hai.
+                    </p>
                   </div>
-                )}
+
+                  {/* Optional Repo Setup Notes */}
+                  <div className="space-y-1">
+                    <label className="text-slate-300 font-medium">Repository Setup Notes / Instructions (Optional)</label>
+                    <textarea
+                      rows={2}
+                      value={editingListing.sourceCodeNotes || ''}
+                      onChange={(e) => setEditingListing({ ...editingListing, sourceCodeNotes: e.target.value })}
+                      placeholder="e.g. Node 20+, run npm install && npm run dev, environment variables..."
+                      className="w-full px-3 py-2 bg-[#141829] border border-white/10 rounded-xl text-xs text-white placeholder-slate-500 leading-relaxed"
+                    />
+                  </div>
+                </div>
               </div>
 
               {/* Toggles */}

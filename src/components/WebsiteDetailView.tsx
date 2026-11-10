@@ -220,7 +220,7 @@ export const WebsiteDetailView: React.FC<WebsiteDetailViewProps> = ({
                 Full Source Code License
               </div>
               <div className="text-2xl sm:text-3xl font-extrabold text-white font-mono tabular-nums">
-                {formatPrice(listing.priceUSD, currency)}
+                {formatPrice(listing.priceUSD, currency, listing.pricePKR)}
               </div>
               <p className="text-[11px] text-slate-400 mt-1">
                 Single commercial project usage with unlimited end-users.
@@ -234,7 +234,7 @@ export const WebsiteDetailView: React.FC<WebsiteDetailViewProps> = ({
                 className="w-full min-h-[44px] py-3.5 px-4 text-xs sm:text-sm font-semibold text-white bg-blue-600 hover:bg-blue-500 rounded-xl shadow-lg shadow-blue-600/30 transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-[0.98]"
               >
                 <ShoppingBag className="w-4 h-4" />
-                <span>Buy Source Code ({formatPrice(listing.priceUSD, currency)})</span>
+                <span>Buy Source Code ({formatPrice(listing.priceUSD, currency, listing.pricePKR)})</span>
               </button>
 
               <button
@@ -339,7 +339,7 @@ export const WebsiteDetailView: React.FC<WebsiteDetailViewProps> = ({
                   <span className="text-[11px] text-blue-400 font-medium">{rel.category}</span>
                   <h4 className="text-sm font-semibold text-white truncate">{rel.title}</h4>
                   <div className="text-xs font-bold text-slate-200 font-mono pt-1">
-                    {formatPrice(rel.priceUSD, currency)}
+                    {formatPrice(rel.priceUSD, currency, rel.pricePKR)}
                   </div>
                 </div>
               </div>

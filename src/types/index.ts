@@ -15,6 +15,7 @@ export interface WebsiteListing {
   shortDescription: string;
   fullDescription: string;
   priceUSD: number;
+  pricePKR?: number;
   featured: boolean;
   published: boolean;
   thumbnail: string;
