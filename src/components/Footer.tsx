@@ -1,6 +1,7 @@
 import React from 'react';
 import { PublicSettings } from '../types';
-import { Code2, Mail, MessageSquare, Lock, ExternalLink, ShieldCheck } from 'lucide-react';
+import { Mail, MessageSquare, Lock, ExternalLink, ShieldCheck } from 'lucide-react';
+import { BrandLogo } from './BrandLogo';
 
 interface FooterProps {
   settings: PublicSettings;
@@ -25,13 +26,16 @@ export const Footer: React.FC<FooterProps> = ({
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-10">
           {/* Col 1 & 2: Brand & Contact Info */}
           <div className="lg:col-span-2 space-y-4">
-            <div className="flex items-center gap-2.5">
-              <div className="w-7 h-7 rounded-lg bg-blue-600 flex items-center justify-center text-white font-bold">
-                <Code2 className="w-4 h-4" />
+            <div className="flex items-center gap-4">
+              <BrandLogo size="lg" />
+              <div>
+                <span className="font-extrabold text-xl tracking-tight text-white block leading-tight">
+                  Elvora Vision
+                </span>
+                <span className="text-[11px] tracking-widest uppercase text-cyan-400 font-semibold">
+                  Building Digital Excellence
+                </span>
               </div>
-              <span className="font-extrabold text-base tracking-tight text-white">
-                Smart Developer
-              </span>
             </div>
 
             <p className="text-slate-400 max-w-sm leading-relaxed">
@@ -234,7 +238,7 @@ export const Footer: React.FC<FooterProps> = ({
         {/* Bottom copyright line */}
         <div className="pt-12 mt-12 border-t border-white/[0.06] flex flex-col sm:flex-row items-center justify-between gap-4 text-[11px] text-slate-400">
           <div>
-            © {new Date().getFullYear()} Smart Developer. All commercial rights reserved.
+            © {new Date().getFullYear()} Elvora Vision. All commercial rights reserved.
           </div>
           <div className="flex items-center gap-4">
             <span>Serving Pakistan, USA, UK, Canada, Australia & Worldwide</span>

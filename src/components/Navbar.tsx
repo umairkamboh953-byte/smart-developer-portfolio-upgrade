@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { CurrencyCode } from '../types';
 import { CURRENCIES } from '../utils/currency';
-import { Code2, Globe, Menu, X, ArrowUpRight, Search, FileCheck, Lock } from 'lucide-react';
+import { Globe, Menu, X, ArrowUpRight, Search, FileCheck, Lock } from 'lucide-react';
+import { BrandLogo } from './BrandLogo';
 
 interface NavbarProps {
   currentView: string;
@@ -40,19 +41,22 @@ export const Navbar: React.FC<NavbarProps> = ({
 
   return (
     <header className="sticky top-0 z-40 w-full border-b border-white/[0.08] bg-[#08090E]/95 backdrop-blur-xl transition-all">
-      <div className="max-w-7xl mx-auto px-3.5 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-2 sm:gap-4 md:gap-8">
-        {/* Zone 1: Single text element wordmark */}
+      <div className="max-w-7xl mx-auto px-3.5 sm:px-6 lg:px-8 h-20 flex items-center justify-between gap-2 sm:gap-4 md:gap-8">
+        {/* Zone 1: Brand emblem + wordmark */}
         <button
           onClick={() => handleLinkClick('home')}
-          className="flex items-center gap-2 sm:gap-2.5 text-left font-bold tracking-tight text-white whitespace-nowrap shrink-0 hover:opacity-90 transition-opacity cursor-pointer min-h-[44px] py-1"
-          aria-label="Smart Developer Home"
+          className="flex items-center gap-3 text-left font-bold tracking-tight text-white whitespace-nowrap shrink-0 hover:opacity-90 transition-opacity cursor-pointer min-h-[48px] py-1"
+          aria-label="Elvora Vision Home"
         >
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center shadow-md shadow-blue-500/20 text-white shrink-0">
-            <Code2 className="w-4 h-4" />
+          <BrandLogo size="md" />
+          <div className="flex flex-col leading-none gap-0.5">
+            <span className="font-extrabold tracking-tight text-white text-lg sm:text-xl">
+              Elvora Vision
+            </span>
+            <span className="text-[10px] font-semibold tracking-widest uppercase text-cyan-400 hidden sm:block">
+              Building Digital Excellence
+            </span>
           </div>
-          <span className="font-extrabold tracking-tight text-white text-base sm:text-lg">
-            Smart Developer
-          </span>
         </button>
 
         {/* Zone 2: Desktop 4-5 concise single-line nav links */}

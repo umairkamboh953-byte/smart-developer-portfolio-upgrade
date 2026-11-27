@@ -1,5 +1,6 @@
 import React from 'react';
 import { ArrowRight, Code, ShieldCheck, Sparkles, Layers, Globe2, Zap } from 'lucide-react';
+import { BrandLogo } from './BrandLogo';
 
 interface HeroShowcaseProps {
   onExplore: () => void;
@@ -19,11 +20,14 @@ export const HeroShowcase: React.FC<HeroShowcaseProps> = ({
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
           {/* Left Column: Typographic Hierarchy */}
           <div className="lg:col-span-6 space-y-4 sm:space-y-6 text-center lg:text-left">
-            {/* Minimalist kicker */}
-            <div className="inline-flex items-center gap-2 text-[11px] sm:text-xs font-semibold text-blue-400 bg-blue-950/40 border border-blue-800/40 px-3 py-1 rounded-full">
-              <span>Full-Stack Web Engineering</span>
-              <span aria-hidden="true">·</span>
-              <span>Global Client Deliveries</span>
+            {/* Prominent Brand Emblem + Minimalist kicker */}
+            <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4">
+              <BrandLogo size="lg" />
+              <div className="inline-flex items-center gap-2 text-[11px] sm:text-xs font-semibold text-blue-400 bg-blue-950/40 border border-blue-800/40 px-3.5 py-1.5 rounded-full">
+                <span>Full-Stack Web Engineering</span>
+                <span aria-hidden="true">·</span>
+                <span>Global Client Deliveries</span>
+              </div>
             </div>
 
             {/* Main Heading with clamp fluid scaling */}
@@ -94,7 +98,7 @@ export const HeroShowcase: React.FC<HeroShowcaseProps> = ({
                     <div className="w-2.5 h-2.5 rounded-full bg-emerald-500/70" />
                   </div>
                   <span className="text-[10px] sm:text-[11px] font-mono text-slate-400 truncate max-w-[170px] sm:max-w-none">
-                    smartdeveloper.io/portfolio/showcase
+                    elvoravision.io/portfolio/showcase
                   </span>
                   <div className="text-[10px] sm:text-[11px] font-mono text-blue-400 font-semibold">
                     v2.0
@@ -105,7 +109,7 @@ export const HeroShowcase: React.FC<HeroShowcaseProps> = ({
                 <div className="relative aspect-[16/10] overflow-hidden bg-slate-900">
                   <img
                     src="/assets/images/hero_showcase_dark_1792311614014.jpg"
-                    alt="Smart Developer Website Showcase"
+                    alt="Elvora Vision Website Showcase"
                     loading="eager"
                     referrerPolicy="no-referrer"
                     className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-[1.02]"

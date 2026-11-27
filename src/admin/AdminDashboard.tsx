@@ -52,6 +52,7 @@ import {
   Lock
 } from 'lucide-react';
 import { ImageWithFallback } from '../components/ImageWithFallback';
+import { BrandLogo } from '../components/BrandLogo';
 import { safeFetchJson } from '../utils/api';
 import { storageService, notifyDataChanged } from '../utils/storage';
 
@@ -334,7 +335,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         { url: '/assets/images/saas_analytics_platform_1792311615607.jpg', name: 'Nexus Cloud SaaS' },
         { url: '/assets/images/real_estate_luxury_web_1792311614353.jpg', name: 'Elysian Estates Real Estate' },
         { url: '/assets/images/fashion_brand_website_1792311615530.jpg', name: 'Atelier Streetwear Fashion' },
-        { url: '/assets/images/hero_showcase_dark_1792311614014.jpg', name: 'Smart Developer Hero Showcase' }
+        { url: '/assets/images/hero_showcase_dark_1792311614014.jpg', name: 'Elvora Vision Hero Showcase' }
       ]);
     }
   };
@@ -784,13 +785,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   return (
     <div className="min-h-screen bg-[#07080d] text-slate-100 flex flex-col font-sans">
       {/* Top Bar Header */}
-      <header className="h-16 border-b border-white/10 bg-[#0c0f1c] px-4 sm:px-6 flex items-center justify-between sticky top-0 z-30">
+      <header className="h-20 border-b border-white/10 bg-[#0c0f1c] px-4 sm:px-6 flex items-center justify-between sticky top-0 z-30">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-600 to-violet-600 flex items-center justify-center font-bold text-white text-xs shadow-md shadow-blue-500/20">
-            SD
-          </div>
+          <BrandLogo size="md" />
           <div>
-            <span className="font-extrabold text-white text-sm tracking-tight">Smart Developer</span>
+            <span className="font-extrabold text-white text-base tracking-tight">Elvora Vision</span>
             <span className="text-[11px] text-blue-400 block font-mono">Master Administrator Portal (/admin)</span>
           </div>
         </div>
@@ -1005,7 +1004,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       Dashboard Overview
                     </h1>
                     <p className="text-xs text-slate-400">
-                      Real persistent database state for Smart Developer marketplace and client orders.
+                      Real persistent database state for Elvora Vision marketplace and client orders.
                     </p>
                   </div>
 
@@ -1740,7 +1739,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     <div>
                       <h1 className="text-2xl font-bold tracking-tight text-white">Manage FAQs</h1>
                       <p className="text-xs text-slate-400">
-                        Edit public FAQs displayed on the Smart Developer homepage.
+                        Edit public FAQs displayed on the Elvora Vision homepage.
                       </p>
                     </div>
 

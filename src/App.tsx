@@ -239,7 +239,7 @@ export default function App() {
         {loadingInitial ? (
           <div className="py-32 flex flex-col items-center justify-center space-y-3 text-slate-400 text-xs">
             <Loader2 className="w-6 h-6 animate-spin text-blue-500" />
-            <span>Loading Smart Developer Marketplace...</span>
+            <span>Loading Elvora Vision Marketplace...</span>
           </div>
         ) : (
           <>
@@ -295,7 +295,7 @@ export default function App() {
                   listings={listings}
                 />
 
-                {/* Why Choose Smart Developer? */}
+                {/* Why Choose Elvora Vision? */}
                 <WhyChooseUs />
 
                 {/* Custom Development Section */}

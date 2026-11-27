@@ -36,7 +36,7 @@ export const WhyChooseUs: React.FC = () => {
         <div className="text-center max-w-2xl mx-auto mb-16 space-y-3">
           <div className="text-xs font-semibold text-blue-400">Engineering Standards</div>
           <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-white">
-            Why Choose Smart Developer?
+            Why Choose Elvora Vision?
           </h2>
           <p className="text-xs sm:text-sm text-slate-300">
             Every website is designed and coded with commercial grade rigor, ensuring your business launches on a dependable foundation.

@@ -674,7 +674,7 @@ async function startServer() {
   }
 
   app.listen(PORT, '0.0.0.0', () => {
-    console.log(`[Smart Developer] Full-stack Server running at http://0.0.0.0:${PORT}`);
+    console.log(`[Elvora Vision] Full-stack Server running at http://0.0.0.0:${PORT}`);
   });
 }
 

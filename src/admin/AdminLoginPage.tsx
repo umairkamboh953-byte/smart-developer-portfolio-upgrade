@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Lock, ShieldCheck, AlertCircle, Loader2, ArrowLeft, Mail, CheckCircle2, ShieldAlert } from 'lucide-react';
 import { safeFetchJson } from '../utils/api';
+import { BrandLogo } from '../components/BrandLogo';
 
 interface AdminLoginPageProps {
   onLoginSuccess: (token: string) => void;
@@ -74,7 +75,7 @@ export const AdminLoginPage: React.FC<AdminLoginPageProps> = ({
           className="inline-flex items-center gap-2 text-xs font-semibold text-slate-400 hover:text-white transition-colors cursor-pointer"
         >
           <ArrowLeft className="w-4 h-4" />
-          <span>Back to Smart Developer</span>
+          <span>Back to Elvora Vision</span>
         </button>
         <span className="text-[11px] font-mono text-emerald-400 flex items-center gap-1.5">
           <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
@@ -85,11 +86,11 @@ export const AdminLoginPage: React.FC<AdminLoginPageProps> = ({
       {/* Login Card */}
       <div className="w-full max-w-md bg-[#0d101e] border border-white/10 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6">
         <div className="text-center space-y-2">
-          <div className="w-14 h-14 rounded-2xl bg-blue-600/15 border border-blue-500/30 text-blue-400 mx-auto flex items-center justify-center shadow-inner">
-            <Lock className="w-7 h-7" />
+          <div className="flex justify-center">
+            <BrandLogo size="xl" />
           </div>
           <h1 className="text-2xl font-bold tracking-tight text-white flex items-center justify-center gap-2">
-            Admin Access Portal
+            Elvora Vision Admin
           </h1>
           <p className="text-xs text-slate-400 leading-relaxed">
             Strict role-based access control. Password login is permanently disabled. Only authorized Google accounts are permitted.
@@ -193,7 +194,7 @@ export const AdminLoginPage: React.FC<AdminLoginPageProps> = ({
             <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
             Zero-Trust Authorization
           </span>
-          <span>Smart Developer Security</span>
+          <span>Elvora Vision Security</span>
         </div>
       </div>
     </div>

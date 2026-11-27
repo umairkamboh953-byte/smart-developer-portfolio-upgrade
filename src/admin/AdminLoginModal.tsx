@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { X, Lock, ShieldCheck, AlertCircle, Loader2, Mail } from 'lucide-react';
+import { X, ShieldCheck, AlertCircle, Loader2, Mail } from 'lucide-react';
 import { safeFetchJson } from '../utils/api';
+import { BrandLogo } from '../components/BrandLogo';
 
 interface AdminLoginModalProps {
   onClose: () => void;
@@ -76,11 +77,11 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({ onClose, onLog
         </button>
 
         <form onSubmit={(e) => handleSubmit(e)} className="space-y-5">
-          <div className="text-center space-y-2">
-            <div className="w-12 h-12 rounded-2xl bg-blue-600/20 border border-blue-500/30 text-blue-400 mx-auto flex items-center justify-center">
-              <Lock className="w-6 h-6" />
+          <div className="text-center space-y-3">
+            <div className="flex justify-center">
+              <BrandLogo size="xl" />
             </div>
-            <h2 className="text-xl font-bold text-white">Administrator Portal Locked</h2>
+            <h2 className="text-xl font-bold text-white">Elvora Vision Admin Portal</h2>
             <p className="text-xs text-slate-400">
               Username and password access removed. Locked exclusively to Google Administrator sign-in.
             </p>

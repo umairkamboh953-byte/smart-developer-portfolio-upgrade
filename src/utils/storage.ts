@@ -248,7 +248,7 @@ export const INITIAL_FAQS: FAQItem[] = [
   {
     id: 'faq-2',
     question: 'Can I view a live demo before purchasing?',
-    answer: 'Yes! Every website listing includes an interactive live demo preview with responsive device switching (Desktop, Tablet, Mobile) right here on Smart Developer, as well as a full-screen preview option.',
+    answer: 'Yes! Every website listing includes an interactive live demo preview with responsive device switching (Desktop, Tablet, Mobile) right here on Elvora Vision, as well as a full-screen preview option.',
     category: 'Live Demos'
   },
   {

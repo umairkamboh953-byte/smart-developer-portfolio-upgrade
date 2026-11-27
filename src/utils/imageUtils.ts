@@ -1,4 +1,4 @@
-// Image URL resolution and professional SVG fallback generator for Smart Developer
+// Image URL resolution and professional SVG fallback generator for Elvora Vision
 
 export function resolveImageUrl(url?: string): string {
   if (!url || typeof url !== 'string' || !url.trim()) {
@@ -23,7 +23,7 @@ export function resolveImageUrl(url?: string): string {
 // Generate high-fidelity SVG preview placeholder for missing/loading demo website images
 export function getCategoryPlaceholderSvg(category: string = 'Website', title: string = 'Demo Showcase'): string {
   const safeCategory = (category || 'Custom Website').toUpperCase();
-  const safeTitle = (title || 'Smart Developer Project').replace(/[<>&"]/g, '');
+  const safeTitle = (title || 'Elvora Vision Project').replace(/[<>&"]/g, '');
 
   let gradientStart = '#1e3a8a'; // Blue
   let gradientEnd = '#3b82f6';
@@ -91,7 +91,7 @@ export function getCategoryPlaceholderSvg(category: string = 'Website', title: s
     <circle cx="138" cy="76" r="6" fill="#10b981"/>
     <!-- Mock URL bar -->
     <rect x="180" y="65" width="360" height="22" rx="6" fill="#0b0f19" stroke="#1e293b"/>
-    <text x="360" y="80" fill="#64748b" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="11" text-anchor="middle">smartdeveloper.demo/${safeCategory.toLowerCase().replace(/\s+/g, '-')}</text>
+    <text x="360" y="80" fill="#64748b" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="11" text-anchor="middle">elvoravision.demo/${safeCategory.toLowerCase().replace(/\s+/g, '-')}</text>
     <!-- Badge -->
     <rect x="110" y="130" width="160" height="28" rx="6" fill="${badgeBg}"/>
     <text x="190" y="148" fill="#ffffff" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-weight="700" font-size="11" text-anchor="middle" letter-spacing="1">${safeCategory}</text>

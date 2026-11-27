@@ -156,7 +156,7 @@ export const LiveDemoModal: React.FC<LiveDemoModalProps> = ({
                 <div className="w-2.5 h-2.5 rounded-full bg-emerald-500/80"></div>
               </div>
               <span className="text-slate-300 font-mono text-[11px] truncate">
-                {isExternalUrl ? listing.liveDemoUrl : `https://demo.smartdeveloper.io/${listing.slug}`}
+                {isExternalUrl ? listing.liveDemoUrl : `https://demo.elvoravision.io/${listing.slug}`}
               </span>
             </div>
             <div className="flex items-center gap-2 text-slate-400 text-[11px]">

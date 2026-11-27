@@ -23,12 +23,12 @@ export const PolicyModal: React.FC<PolicyModalProps> = ({ type, onClose }) => {
           <div className="space-y-4 text-xs leading-relaxed">
             <div className="flex items-center gap-2 text-blue-400 font-bold text-sm">
               <FileText className="w-5 h-5" />
-              <span>Terms of Service — Smart Developer</span>
+              <span>Terms of Service — Elvora Vision</span>
             </div>
             <p className="text-slate-400">Effective Date: October 2026</p>
             <h4 className="text-sm font-semibold text-white">1. Overview and Agreement</h4>
             <p>
-              Smart Developer provides ready-made website templates, complete source code packages, and custom website development services. By purchasing website source code or contracting custom development, you agree to these terms.
+              Elvora Vision provides ready-made website templates, complete source code packages, and custom website development services. By purchasing website source code or contracting custom development, you agree to these terms.
             </p>
             <h4 className="text-sm font-semibold text-white">2. Source Code License Grant</h4>
             <p>

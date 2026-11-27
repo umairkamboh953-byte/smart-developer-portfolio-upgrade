@@ -32,7 +32,7 @@ export const FloatingWhatsApp: React.FC<FloatingWhatsAppProps> = ({
   const cleanNumber = rawNumber.replace(/[^0-9]/g, '');
 
   const defaultMessage = encodeURIComponent(
-    'Hello Smart Developer! I am interested in purchasing website source code / requesting custom web development.'
+    'Hello Elvora Vision! I am interested in purchasing website source code / requesting custom web development.'
   );
 
   const whatsappUrl = `https://wa.me/${cleanNumber}?text=${defaultMessage}`;

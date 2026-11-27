@@ -41,7 +41,7 @@ export const FloatingChatbot: React.FC<FloatingChatbotProps> = ({
       {
         id: 'msg-1',
         sender: 'bot',
-        text: 'Hello there! 👋 I am your Smart Developer AI Assistant. How can I help you today? Ask me about our ready-made demo websites, source code purchase, or custom web projects.',
+        text: 'Hello there! 👋 I am your Elvora Vision AI Assistant. How can I help you today? Ask me about our ready-made demo websites, source code purchase, or custom web projects.',
         time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       },
     ]);
@@ -156,7 +156,7 @@ export const FloatingChatbot: React.FC<FloatingChatbotProps> = ({
         actionLabel = 'Open WhatsApp Chat';
       } else {
         reply = 'Thanks for reaching out! We build high-performance web applications and ready-made business solutions. Would you like to explore our website catalog or discuss a custom project directly?';
-        actionUrl = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent('Hello! I have a question regarding Smart Developer services: ' + text)}`;
+        actionUrl = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent('Hello! I have a question regarding Elvora Vision services: ' + text)}`;
         actionLabel = 'Talk to Developer';
       }
 
@@ -278,7 +278,7 @@ export const FloatingChatbot: React.FC<FloatingChatbotProps> = ({
               </div>
               <div>
                 <div className="text-sm font-bold text-white flex items-center gap-1.5">
-                  <span>Smart AI Assistant</span>
+                  <span>Elvora Vision Assistant</span>
                   <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
                 </div>
                 <div className="text-[11px] text-cyan-300/80 flex items-center gap-1">

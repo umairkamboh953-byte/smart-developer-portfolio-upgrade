@@ -15,7 +15,7 @@ export const AboutSection: React.FC<AboutSectionProps> = ({ onExplore, onRequest
           Architecting High-Performance Websites with Modern AI Tooling
         </h1>
         <p className="text-sm sm:text-base text-slate-300 leading-relaxed">
-          Smart Developer is an independent web engineering studio founded to bridge high-end architectural web design, rapid AI-assisted development workflows, and clean unminified source code delivery.
+          Elvora Vision is an independent web engineering studio founded to bridge high-end architectural web design, rapid AI-assisted development workflows, and clean unminified source code delivery.
         </p>
       </div>
 
