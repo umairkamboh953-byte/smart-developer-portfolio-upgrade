@@ -3,6 +3,7 @@
 
 // Authorized Admin Google Accounts
 const AUTHORIZED_ADMIN_EMAILS = [
+  'smartdeveloper125@gmail.com',
   'umairkamboh953@gmail.com',
   'smartbuy9@gmail.com'
 ];
@@ -178,12 +179,13 @@ export const onRequest: PagesFunction = async (context) => {
         success: true,
         token,
         email: cleanEmail,
+        role: 'owner',
         message: 'Authorized Administrator verified via Google Sign-In'
       });
     }
 
     return jsonResponse({
-      error: `Access Denied: Google Account "${cleanEmail}" is not an authorized administrator. Only authorized admin emails (${AUTHORIZED_ADMIN_EMAILS.join(', ')}) can access the Smart Developer dashboard.`
+      error: `Access Denied: Google Account "${cleanEmail}" is not an authorized administrator. Only authorized admin emails (smartdeveloper125@gmail.com) and invited team members can access the Elvora Vision dashboard.`
     }, 403);
   }
 

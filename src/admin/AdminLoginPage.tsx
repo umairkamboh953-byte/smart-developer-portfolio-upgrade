@@ -8,6 +8,11 @@ interface AdminLoginPageProps {
   onNavigateHome: () => void;
 }
 
+const OWNER_EMAILS = [
+  'smartdeveloper125@gmail.com',
+  'umairkamboh953@gmail.com'
+];
+
 export const AdminLoginPage: React.FC<AdminLoginPageProps> = ({
   onLoginSuccess,
   onNavigateHome
@@ -17,7 +22,7 @@ export const AdminLoginPage: React.FC<AdminLoginPageProps> = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Google Sign-In Verification (Strictly enforced by server: Owner & Authorized Team Members ONLY)
+  // Google Sign-In Verification (Enforced by server, with clean fallback for static hosting)
   const handleGoogleAuthSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     const cleanEmail = googleEmail.trim().toLowerCase();
@@ -45,17 +50,45 @@ export const AdminLoginPage: React.FC<AdminLoginPageProps> = ({
       if (res.ok && res.data?.token) {
         localStorage.setItem('smart_developer_admin_token', res.data.token);
         localStorage.setItem('smart_developer_admin_email', cleanEmail);
-        localStorage.setItem('smart_developer_admin_role', res.data.role || 'member');
+        localStorage.setItem('smart_developer_admin_role', res.data.role || (OWNER_EMAILS.includes(cleanEmail) ? 'owner' : 'member'));
         onLoginSuccess(res.data.token);
         return;
       }
 
-      // If rejected by server, show the exact access-denied reason
-      const errMsg =
-        res.data?.error ||
-        res.error ||
-        `Access Denied: "${cleanEmail}" is not authorized. Only Owner (smartdeveloper125@gmail.com) and invited Team Members can log in.`;
-      throw new Error(errMsg);
+      // If backend actively responded with 403/401 JSON rejection, surface that exact rejection
+      if (res.isJson && (res.status === 403 || res.status === 401 || res.status === 400)) {
+        throw new Error(
+          res.data?.error ||
+          res.error ||
+          `Access Denied: "${cleanEmail}" is not authorized. Only Owner (smartdeveloper125@gmail.com) and invited Team Members can log in.`
+        );
+      }
+
+      // Fallback when deployed to static/SPA hosting (404 HTML fallback / offline backend)
+      const isOwner = OWNER_EMAILS.includes(cleanEmail);
+      let isInvitedMember = false;
+      try {
+        const storedTeam = JSON.parse(localStorage.getItem('smart_developer_team_members') || '[]');
+        if (Array.isArray(storedTeam)) {
+          isInvitedMember = storedTeam.some((m: any) => String(m?.email || '').toLowerCase().trim() === cleanEmail);
+        }
+      } catch {
+        // ignore invalid localStorage
+      }
+
+      if (isOwner || isInvitedMember) {
+        const role: 'owner' | 'member' = isOwner ? 'owner' : 'member';
+        const clientToken = `google_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
+        localStorage.setItem('smart_developer_admin_token', clientToken);
+        localStorage.setItem('smart_developer_admin_email', cleanEmail);
+        localStorage.setItem('smart_developer_admin_role', role);
+        onLoginSuccess(clientToken);
+        return;
+      }
+
+      throw new Error(
+        `Access Denied: "${cleanEmail}" is not authorized. Only Owner (smartdeveloper125@gmail.com) and invited Team Members can log in.`
+      );
     } catch (err: any) {
       setError(err.message || 'Google account not authorized.');
     } finally {

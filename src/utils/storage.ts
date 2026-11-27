@@ -414,7 +414,7 @@ export const storageService = {
       });
       if (res.ok && res.data?.listing) {
         savedListing = res.data.listing;
-      } else {
+      } else if (res.isJson && res.status >= 400 && res.status !== 404) {
         const err = res.data?.error || res.error || 'Server rejected listing save';
         console.error('saveListing error:', err);
         throw new Error(err);

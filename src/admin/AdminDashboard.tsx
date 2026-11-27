@@ -147,7 +147,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         headers: { Authorization: `Bearer ${token}` }
       });
       if (res.ok && res.data) {
-        if (res.data.teamMembers) setTeamMembers(res.data.teamMembers);
+        if (res.data.teamMembers) {
+          setTeamMembers(res.data.teamMembers);
+          localStorage.setItem('smart_developer_team_members', JSON.stringify(res.data.teamMembers));
+        }
         if (res.data.currentRole) {
           setUserRole(res.data.currentRole);
           localStorage.setItem('smart_developer_admin_role', res.data.currentRole);
@@ -155,6 +158,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         if (res.data.currentEmail) {
           setUserEmail(res.data.currentEmail);
           localStorage.setItem('smart_developer_admin_email', res.data.currentEmail);
+        }
+      } else {
+        try {
+          const cachedTeam = JSON.parse(localStorage.getItem('smart_developer_team_members') || '[]');
+          if (Array.isArray(cachedTeam)) setTeamMembers(cachedTeam);
+        } catch {
+          // ignore
         }
       }
     } catch (err) {
@@ -479,9 +489,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
       if (res.ok && res.data?.categories) {
         setCategories(res.data.categories);
+        localStorage.setItem('smart_developer_categories_v2', JSON.stringify(res.data.categories));
       } else {
         const next = Array.from(new Set([...categories, name]));
         setCategories(next);
+        localStorage.setItem('smart_developer_categories_v2', JSON.stringify(next));
       }
       setNewCategoryName('');
       showNotification('Category added successfully.');
@@ -509,8 +521,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       );
       if (res.ok && res.data?.categories) {
         setCategories(res.data.categories);
+        localStorage.setItem('smart_developer_categories_v2', JSON.stringify(res.data.categories));
       } else {
-        setCategories(categories.filter((c) => c !== catName));
+        const next = categories.filter((c) => c !== catName);
+        setCategories(next);
+        localStorage.setItem('smart_developer_categories_v2', JSON.stringify(next));
       }
       showNotification('Category deleted.');
       notifyDataChanged();
@@ -658,22 +673,26 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         },
         body: JSON.stringify(editingFaq)
       });
-      if (res.ok && res.data?.faq) {
-        const savedFaq = res.data.faq;
-        setFaqs((prev) => {
-          const idx = prev.findIndex((f) => f.id === savedFaq.id);
-          if (idx !== -1) {
-            const next = [...prev];
-            next[idx] = savedFaq;
-            return next;
-          }
-          return [...prev, savedFaq];
-        });
-      }
+      const savedFaq: FAQItem = (res.ok && res.data?.faq)
+        ? res.data.faq
+        : {
+            id: editingFaq.id || `faq-${Date.now()}`,
+            question: editingFaq.question,
+            answer: editingFaq.answer,
+            category: editingFaq.category || 'General'
+          };
+
+      setFaqs((prev) => {
+        const idx = prev.findIndex((f) => f.id === savedFaq.id);
+        const next = idx !== -1
+          ? prev.map((f, i) => (i === idx ? savedFaq : f))
+          : [...prev, savedFaq];
+        localStorage.setItem('smart_developer_faqs_v2', JSON.stringify(next));
+        return next;
+      });
       showNotification('FAQ saved.');
       setEditingFaq(null);
       notifyDataChanged();
-      fetchAdminData();
     } catch (err: any) {
       showNotification('FAQ save error: ' + (err.message || 'Error'));
     }
@@ -692,7 +711,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` }
       });
-      setFaqs((prev) => prev.filter((f) => f.id !== id));
+      setFaqs((prev) => {
+        const next = prev.filter((f) => f.id !== id);
+        localStorage.setItem('smart_developer_faqs_v2', JSON.stringify(next));
+        return next;
+      });
       showNotification('FAQ deleted.');
       notifyDataChanged();
     } catch (err: any) {
@@ -735,6 +758,24 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         setNewMemberEmail('');
         setNewMemberName('');
         fetchTeamMembers();
+      } else if (!res.isJson || res.status === 404 || res.status === 0) {
+        // Static hosting fallback: store invited team member locally
+        const newMember: TeamMember = {
+          id: `team-${Date.now()}`,
+          email: clean,
+          name: newMemberName.trim() || clean.split('@')[0],
+          role: 'member',
+          addedAt: new Date().toISOString(),
+          addedBy: userEmail
+        };
+        const updated = teamMembers.some((m) => m.email.toLowerCase() === clean)
+          ? teamMembers
+          : [newMember, ...teamMembers];
+        setTeamMembers(updated);
+        localStorage.setItem('smart_developer_team_members', JSON.stringify(updated));
+        setNewMemberEmail('');
+        setNewMemberName('');
+        showNotification(`Access granted to ${clean}`);
       } else {
         setTeamActionError(res.error || 'Failed to add team member');
         showNotification(res.error || 'Failed to add team member');
@@ -766,6 +807,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       if (res.ok) {
         showNotification(`Access revoked for ${email}`);
         fetchTeamMembers();
+      } else if (!res.isJson || res.status === 404 || res.status === 0) {
+        const updated = teamMembers.filter((m) => m.id !== id);
+        setTeamMembers(updated);
+        localStorage.setItem('smart_developer_team_members', JSON.stringify(updated));
+        showNotification(`Access revoked for ${email}`);
       } else {
         showNotification(res.error || 'Failed to revoke access');
       }

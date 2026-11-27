@@ -36,22 +36,32 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({ onClose, onLog
       if (res.ok && res.data?.token) {
         localStorage.setItem('smart_developer_admin_token', res.data.token);
         localStorage.setItem('smart_developer_admin_email', cleanEmail);
-        localStorage.setItem('smart_developer_admin_role', res.data.role || (cleanEmail === 'smartdeveloper125@gmail.com' ? 'owner' : 'member'));
+        localStorage.setItem('smart_developer_admin_role', res.data.role || (AUTHORIZED_ADMIN_EMAILS.includes(cleanEmail) ? 'owner' : 'member'));
         onLoginSuccess(res.data.token);
         return;
       }
 
-      if (res.status === 403 || res.status === 401) {
+      if (res.isJson && (res.status === 403 || res.status === 401)) {
         throw new Error(res.error || `Access Denied: Google Account "${cleanEmail}" is not authorized. Only Owner (smartdeveloper125@gmail.com) and invited Team Members have access.`);
       }
 
       // Fallback verification for static hosting
-      const isAuthorized = AUTHORIZED_ADMIN_EMAILS.some((admin) => admin.toLowerCase() === cleanEmail);
-      if (isAuthorized) {
+      const isOwner = AUTHORIZED_ADMIN_EMAILS.some((admin) => admin.toLowerCase() === cleanEmail);
+      let isInvitedMember = false;
+      try {
+        const storedTeam = JSON.parse(localStorage.getItem('smart_developer_team_members') || '[]');
+        if (Array.isArray(storedTeam)) {
+          isInvitedMember = storedTeam.some((m: any) => String(m?.email || '').toLowerCase().trim() === cleanEmail);
+        }
+      } catch {
+        // ignore
+      }
+
+      if (isOwner || isInvitedMember) {
         const clientToken = `google_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
         localStorage.setItem('smart_developer_admin_token', clientToken);
         localStorage.setItem('smart_developer_admin_email', cleanEmail);
-        localStorage.setItem('smart_developer_admin_role', cleanEmail === 'smartdeveloper125@gmail.com' ? 'owner' : 'member');
+        localStorage.setItem('smart_developer_admin_role', isOwner ? 'owner' : 'member');
         onLoginSuccess(clientToken);
         return;
       }
