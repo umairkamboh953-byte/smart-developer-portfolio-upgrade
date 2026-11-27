@@ -8,11 +8,15 @@
     "socialLinks": {
       "github": "",
       "linkedin": "",
-      "twitter": ""
+      "twitter": "",
+      "tiktok": "https://www.tiktok.com/@test",
+      "instagram": "https://www.instagram.com/test",
+      "facebook": "https://www.facebook.com/test",
+      "youtube": "https://www.youtube.com/@test"
     },
     "adminPasswordHash": "68e6cb4da766b2be607915e6e56a681d6f0bb89734098d0eb46c089f68dcf1d88299eb5a6dcf7675cbb1c575f95f034cd54f164741cc18f02c1f8d0d797af15f",
     "salt": "smart_developer_secure_salt_2026",
-    "sessionToken": "1c31c114d12dbfdf465fa04c9c10ebbb48d2d7903732d4773e5b1a6447bf9dbf"
+    "sessionToken": "4a586892f09ae2fa1f43831b6325233d955d014856e647b65170a011c230c1e9"
   },
   "listings": [
     {
@@ -454,6 +458,11 @@
       "email": "smartdeveloper125@gmail.com",
       "role": "owner",
       "createdAt": "2026-11-27T13:08:47.554Z"
+    },
+    "4a586892f09ae2fa1f43831b6325233d955d014856e647b65170a011c230c1e9": {
+      "email": "umairkamboh953@gmail.com",
+      "role": "owner",
+      "createdAt": "2026-11-27T14:24:30.787Z"
     }
   }
 }

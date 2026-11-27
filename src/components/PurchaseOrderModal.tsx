@@ -3,6 +3,7 @@ import { WebsiteListing, CurrencyCode, PurchaseOrder } from '../types';
 import { formatPrice, convertAmount } from '../utils/currency';
 import { X, ShoppingBag, CheckCircle2, ShieldCheck, AlertCircle, Loader2, Copy, Check } from 'lucide-react';
 import { safeFetchJson } from '../utils/api';
+import { firestoreService } from '../utils/firestoreService';
 
 interface PurchaseOrderModalProps {
   listing: WebsiteListing;
@@ -90,52 +91,33 @@ export const PurchaseOrderModal: React.FC<PurchaseOrderModalProps> = ({
     setLoading(true);
 
     try {
-      const res = await safeFetchJson<{ success: boolean; order: PurchaseOrder; error?: string }>('/api/orders', {
+      const orderPayload = {
+        websiteId: listing.id,
+        websiteTitle: listing.title,
+        customerName,
+        customerEmail,
+        customerPhone,
+        customerCountry,
+        amount: currency === 'PKR' ? totalPKR : totalUSD,
+        currency,
+        preferredPaymentMethod: selectedMethod,
+        licenseType,
+        customizationAddons: selectedAddons
+      };
+
+      // Primary: save to Cloud Firestore so admin sees orders across all devices
+      const cloudOrder = await firestoreService.createOrder(orderPayload);
+
+      // Optional: also sync to Express API if running
+      safeFetchJson('/api/orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          websiteId: listing.id,
-          websiteTitle: listing.title,
-          customerName,
-          customerEmail,
-          customerPhone,
-          customerCountry,
-          amount: currency === 'PKR' ? totalPKR : totalUSD,
-          currency: currency,
-          preferredPaymentMethod: selectedMethod,
-          paymentMethod: selectedMethod,
-          licenseType
-        })
-      });
+        body: JSON.stringify({ ...orderPayload, paymentMethod: selectedMethod })
+      }).catch(() => {});
 
-      if (!res.ok || !res.data?.order) {
-        // Fallback for static Cloudflare
-        const orderNum = `ORD-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
-        const fallbackOrder: PurchaseOrder = {
-          orderNumber: orderNum,
-          websiteId: listing.id,
-          websiteTitle: listing.title,
-          amount: currency === 'PKR' ? totalPKR : totalUSD,
-          currency: currency,
-          customerName,
-          customerEmail,
-          customerPhone,
-          customerCountry: customerCountry || 'International',
-          licenseType,
-          preferredPaymentMethod: selectedMethod,
-          customizationAddons: [],
-          paymentStatus: 'Pending Verification',
-          deliveryStatus: 'Preparing Package',
-          createdAt: new Date().toISOString()
-        };
-        setConfirmedOrder(fallbackOrder);
-        if (onOrderCreated) onOrderCreated(fallbackOrder);
-        return;
-      }
-
-      setConfirmedOrder(res.data.order);
+      setConfirmedOrder(cloudOrder);
       if (onOrderCreated) {
-        onOrderCreated(res.data.order);
+        onOrderCreated(cloudOrder);
       }
     } catch (err: any) {
       setError(err.message || 'Error occurred while processing request.');

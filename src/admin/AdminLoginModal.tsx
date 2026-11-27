@@ -1,5 +1,8 @@
 import React, { useState } from 'react';
 import { X, ShieldCheck, AlertCircle, Loader2, Mail } from 'lucide-react';
+import { signInWithPopup, signOut } from 'firebase/auth';
+import { auth, googleProvider, isOwnerEmail } from '../firebase';
+import { firestoreService } from '../utils/firestoreService';
 import { safeFetchJson } from '../utils/api';
 import { BrandLogo } from '../components/BrandLogo';
 
@@ -8,69 +11,69 @@ interface AdminLoginModalProps {
   onLoginSuccess: (token: string) => void;
 }
 
-const AUTHORIZED_ADMIN_EMAILS = [
-  'smartdeveloper125@gmail.com',
-  'umairkamboh953@gmail.com'
-];
-
 export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({ onClose, onLoginSuccess }) => {
-  const [googleEmail, setGoogleEmail] = useState('smartdeveloper125@gmail.com');
+  const [googleEmail, setGoogleEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = async (e?: React.FormEvent, directEmail?: string) => {
+  const handleSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    const cleanEmail = (directEmail || googleEmail).trim().toLowerCase();
-    if (!cleanEmail) return;
+    const hintEmail = googleEmail.trim().toLowerCase();
 
     setLoading(true);
     setError(null);
 
     try {
-      const res = await safeFetchJson<{ success: boolean; token: string; role?: 'owner' | 'member'; error?: string }>('/api/admin/google-login', {
+      if (hintEmail) {
+        googleProvider.setCustomParameters({ login_hint: hintEmail });
+      } else {
+        googleProvider.setCustomParameters({});
+      }
+
+      const credential = await signInWithPopup(auth, googleProvider);
+      const signedInEmail = (credential.user.email || '').toLowerCase().trim();
+
+      if (!signedInEmail) {
+        await signOut(auth);
+        throw new Error('Google sign-in did not return an email address.');
+      }
+
+      const owner = isOwnerEmail(signedInEmail);
+      const invitedMember = !owner ? await firestoreService.isInvitedTeamMember(signedInEmail) : false;
+
+      if (!owner && !invitedMember) {
+        await signOut(auth);
+        throw new Error(
+          `Access Denied: Google Account "${signedInEmail}" is not authorized. Only Owners and invited Team Members have access.`
+        );
+      }
+
+      const role: 'owner' | 'member' = owner ? 'owner' : 'member';
+      let finalToken = await credential.user.getIdToken();
+
+      const res = await safeFetchJson<{ success: boolean; token?: string }>('/api/admin/google-login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: cleanEmail })
+        body: JSON.stringify({ email: signedInEmail })
       });
-
       if (res.ok && res.data?.token) {
-        localStorage.setItem('smart_developer_admin_token', res.data.token);
-        localStorage.setItem('smart_developer_admin_email', cleanEmail);
-        localStorage.setItem('smart_developer_admin_role', res.data.role || (AUTHORIZED_ADMIN_EMAILS.includes(cleanEmail) ? 'owner' : 'member'));
-        onLoginSuccess(res.data.token);
-        return;
+        finalToken = res.data.token;
       }
 
-      if (res.isJson && (res.status === 403 || res.status === 401)) {
-        throw new Error(res.error || `Access Denied: Google Account "${cleanEmail}" is not authorized. Only Owner (smartdeveloper125@gmail.com) and invited Team Members have access.`);
-      }
-
-      // Fallback verification for static hosting
-      const isOwner = AUTHORIZED_ADMIN_EMAILS.some((admin) => admin.toLowerCase() === cleanEmail);
-      let isInvitedMember = false;
-      try {
-        const storedTeam = JSON.parse(localStorage.getItem('smart_developer_team_members') || '[]');
-        if (Array.isArray(storedTeam)) {
-          isInvitedMember = storedTeam.some((m: any) => String(m?.email || '').toLowerCase().trim() === cleanEmail);
-        }
-      } catch {
-        // ignore
-      }
-
-      if (isOwner || isInvitedMember) {
-        const clientToken = `google_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
-        localStorage.setItem('smart_developer_admin_token', clientToken);
-        localStorage.setItem('smart_developer_admin_email', cleanEmail);
-        localStorage.setItem('smart_developer_admin_role', isOwner ? 'owner' : 'member');
-        onLoginSuccess(clientToken);
-        return;
-      }
-
-      throw new Error(
-        `Access Denied: Google Account "${cleanEmail}" is not authorized. Please ask Owner (smartdeveloper125@gmail.com) to grant you team access.`
-      );
+      localStorage.setItem('smart_developer_admin_token', finalToken);
+      localStorage.setItem('smart_developer_admin_email', signedInEmail);
+      localStorage.setItem('smart_developer_admin_role', role);
+      onLoginSuccess(finalToken);
     } catch (err: any) {
-      setError(err.message || 'Google account not authorized.');
+      if (err?.code === 'auth/popup-closed-by-user') {
+        setError('Google sign-in popup was closed before completing login.');
+      } else if (err?.code === 'auth/popup-blocked') {
+        setError('Sign-in popup was blocked by your browser. Please allow popups and try again.');
+      } else if (err?.code === 'auth/unauthorized-domain') {
+        setError('This domain needs to be added to Firebase Authentication -> Settings -> Authorized domains.');
+      } else {
+        setError(err.message || 'Google account not authorized.');
+      }
     } finally {
       setLoading(false);
     }
@@ -81,19 +84,19 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({ onClose, onLog
       <div className="relative w-full max-w-md bg-[#0d101e] border border-white/15 rounded-3xl p-6 sm:p-8 shadow-2xl text-slate-100">
         <button
           onClick={onClose}
-          className="absolute top-5 right-5 p-2 text-slate-400 hover:text-white rounded-xl hover:bg-white/5 transition-colors"
+          className="absolute top-5 right-5 p-2 text-slate-400 hover:text-white rounded-xl hover:bg-white/5 transition-colors cursor-pointer"
         >
           <X className="w-5 h-5" />
         </button>
 
-        <form onSubmit={(e) => handleSubmit(e)} className="space-y-5">
+        <form onSubmit={handleSubmit} className="space-y-5">
           <div className="text-center space-y-3">
             <div className="flex justify-center">
               <BrandLogo size="xl" />
             </div>
             <h2 className="text-xl font-bold text-white">Elvora Vision Admin Portal</h2>
             <p className="text-xs text-slate-400">
-              Username and password access removed. Locked exclusively to Google Administrator sign-in.
+              Verified Google Sign-In powered by Firebase Cloud Auth.
             </p>
           </div>
 
@@ -108,21 +111,20 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({ onClose, onLog
             <div className="flex items-center justify-between text-xs text-blue-300 font-semibold">
               <span className="flex items-center gap-1.5">
                 <ShieldCheck className="w-4 h-4 text-emerald-400" />
-                Authorized Admin
+                Authorized Owners
               </span>
               <span className="text-[10px] text-emerald-400 font-mono">Verified</span>
             </div>
             <div className="flex items-center gap-2 text-xs font-mono text-white bg-black/40 p-2 rounded-lg border border-white/5">
-              <Mail className="w-3.5 h-3.5 text-blue-400" />
-              <span className="truncate">smartdeveloper125@gmail.com</span>
+              <Mail className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+              <span className="truncate">smartdeveloper125@gmail.com / umairkamboh953@gmail.com</span>
             </div>
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-slate-300">Google Account</label>
+            <label className="text-xs font-semibold text-slate-300">Google Account Hint (Optional)</label>
             <input
               type="email"
-              required
               value={googleEmail}
               onChange={(e) => setGoogleEmail(e.target.value)}
               placeholder="smartdeveloper125@gmail.com"
@@ -130,12 +132,11 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({ onClose, onLog
             />
           </div>
 
-          {/* Quick email select */}
           <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={() => setGoogleEmail('smartdeveloper125@gmail.com')}
-              className={`flex-1 py-1 px-2 rounded-lg border text-[11px] font-mono transition-colors text-center truncate ${
+              className={`flex-1 py-1 px-2 rounded-lg border text-[11px] font-mono transition-colors text-center truncate cursor-pointer ${
                 googleEmail.toLowerCase() === 'smartdeveloper125@gmail.com'
                   ? 'border-blue-500 bg-blue-600/20 text-blue-300'
                   : 'border-white/5 bg-[#121626] text-slate-400'
@@ -146,7 +147,7 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({ onClose, onLog
             <button
               type="button"
               onClick={() => setGoogleEmail('umairkamboh953@gmail.com')}
-              className={`flex-1 py-1 px-2 rounded-lg border text-[11px] font-mono transition-colors text-center truncate ${
+              className={`flex-1 py-1 px-2 rounded-lg border text-[11px] font-mono transition-colors text-center truncate cursor-pointer ${
                 googleEmail.toLowerCase() === 'umairkamboh953@gmail.com'
                   ? 'border-blue-500 bg-blue-600/20 text-blue-300'
                   : 'border-white/5 bg-[#121626] text-slate-400'
@@ -165,7 +166,7 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({ onClose, onLog
               {loading ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin text-slate-900" />
-                  <span>Verifying Admin Authorization...</span>
+                  <span>Verifying Google Sign-In...</span>
                 </>
               ) : (
                 <>

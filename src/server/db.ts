@@ -76,6 +76,10 @@ export interface SystemSettings {
   showStatistics: boolean;
   completedProjectsCount: number;
   socialLinks: {
+    tiktok?: string;
+    instagram?: string;
+    facebook?: string;
+    youtube?: string;
     github?: string;
     linkedin?: string;
     twitter?: string;
@@ -139,6 +143,10 @@ const INITIAL_DB: DatabaseSchema = {
     showStatistics: false, // Default hidden until genuine data configured
     completedProjectsCount: 24,
     socialLinks: {
+      tiktok: '',
+      instagram: '',
+      facebook: '',
+      youtube: '',
       github: '',
       linkedin: '',
       twitter: ''
@@ -643,7 +651,12 @@ class Database {
     if (updates.whatsappEnabled !== undefined) this.data.settings.whatsappEnabled = updates.whatsappEnabled;
     if (updates.showStatistics !== undefined) this.data.settings.showStatistics = updates.showStatistics;
     if (updates.completedProjectsCount !== undefined) this.data.settings.completedProjectsCount = updates.completedProjectsCount;
-    if (updates.socialLinks) this.data.settings.socialLinks = updates.socialLinks;
+    if (updates.socialLinks) {
+      this.data.settings.socialLinks = {
+        ...(this.data.settings.socialLinks || {}),
+        ...updates.socialLinks
+      };
+    }
     this.save();
     return this.data.settings;
   }

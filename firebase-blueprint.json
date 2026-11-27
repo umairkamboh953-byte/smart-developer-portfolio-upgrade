@@ -1,0 +1,192 @@
+{
+  "entities": {
+    "WebsiteListing": {
+      "title": "WebsiteListing",
+      "description": "Ready-made website package listed in the Elvora Vision marketplace",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "title": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "slug": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "category": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "shortDescription": { "type": "string", "maxLength": 1000 },
+        "fullDescription": { "type": "string", "maxLength": 10000 },
+        "pricePKR": { "type": "number" },
+        "priceUSD": { "type": "number" },
+        "featured": { "type": "boolean" },
+        "published": { "type": "boolean" },
+        "thumbnail": { "type": "string", "maxLength": 500000 },
+        "screenshots": { "type": "array" },
+        "liveDemoUrl": { "type": "string", "maxLength": 2000 },
+        "sourceCodeAvailable": { "type": "boolean" },
+        "sourceCodeUrl": { "type": "string", "maxLength": 2000 },
+        "sourceCodeNotes": { "type": "string", "maxLength": 2000 },
+        "sourceCodeFile": { "type": "string", "maxLength": 2000 },
+        "customizationAvailable": { "type": "boolean" },
+        "techStack": { "type": "array" },
+        "includedPages": { "type": "array" },
+        "responsiveSpecs": { "type": "string", "maxLength": 1000 },
+        "whatYouReceive": { "type": "array" },
+        "customizationServices": { "type": "array" },
+        "demoType": { "type": "string", "enum": ["ecommerce", "realestate", "fashion", "saas", "portfolio", "restaurant", "generic"] },
+        "createdByEmail": { "type": "string", "maxLength": 200 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "title", "slug", "category", "pricePKR", "priceUSD", "featured", "published", "thumbnail", "liveDemoUrl", "createdAt", "updatedAt"]
+    },
+    "PublicSettings": {
+      "title": "PublicSettings",
+      "description": "Public business contact details, social media links, and homepage stats toggle",
+      "type": "object",
+      "properties": {
+        "businessEmail": { "type": "string", "maxLength": 200 },
+        "whatsappNumber": { "type": "string", "maxLength": 50 },
+        "whatsappEnabled": { "type": "boolean" },
+        "showStatistics": { "type": "boolean" },
+        "completedProjectsCount": { "type": "number" },
+        "socialLinks": { "type": "object" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["businessEmail", "whatsappNumber", "whatsappEnabled", "showStatistics", "completedProjectsCount", "socialLinks"]
+    },
+    "FAQItem": {
+      "title": "FAQItem",
+      "description": "Frequently asked question displayed on the storefront",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "question": { "type": "string", "minLength": 1, "maxLength": 500 },
+        "answer": { "type": "string", "minLength": 1, "maxLength": 5000 },
+        "category": { "type": "string", "minLength": 1, "maxLength": 100 }
+      },
+      "required": ["id", "question", "answer", "category"]
+    },
+    "CategoryItem": {
+      "title": "CategoryItem",
+      "description": "Website marketplace category",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "name": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "order": { "type": "number" }
+      },
+      "required": ["id", "name"]
+    },
+    "CustomInquiry": {
+      "title": "CustomInquiry",
+      "description": "Customer inquiry or custom website development request",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "fullName": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "email": { "type": "string", "minLength": 3, "maxLength": 200 },
+        "businessName": { "type": "string", "maxLength": 200 },
+        "country": { "type": "string", "maxLength": 100 },
+        "websiteType": { "type": "string", "maxLength": 150 },
+        "requiredFeatures": { "type": "array" },
+        "budgetRange": { "type": "string", "maxLength": 100 },
+        "desiredCompletionDate": { "type": "string", "maxLength": 100 },
+        "referenceUrl": { "type": "string", "maxLength": 1000 },
+        "projectDescription": { "type": "string", "minLength": 1, "maxLength": 5000 },
+        "status": { "type": "string", "enum": ["New", "In Review", "Quoted", "In Progress", "Completed", "Archived"] },
+        "adminNotes": { "type": "string", "maxLength": 3000 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "fullName", "email", "projectDescription", "status", "createdAt"]
+    },
+    "PurchaseOrder": {
+      "title": "PurchaseOrder",
+      "description": "Customer website purchase order (admin view with customer contact details)",
+      "type": "object",
+      "properties": {
+        "orderNumber": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "websiteId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "websiteTitle": { "type": "string", "minLength": 1, "maxLength": 250 },
+        "amount": { "type": "number" },
+        "currency": { "type": "string", "maxLength": 10 },
+        "customerName": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "customerEmail": { "type": "string", "minLength": 3, "maxLength": 200 },
+        "customerPhone": { "type": "string", "maxLength": 50 },
+        "customerCountry": { "type": "string", "maxLength": 100 },
+        "licenseType": { "type": "string", "maxLength": 120 },
+        "preferredPaymentMethod": { "type": "string", "maxLength": 120 },
+        "customizationAddons": { "type": "array" },
+        "customerNotes": { "type": "string", "maxLength": 2000 },
+        "paymentStatus": { "type": "string", "enum": ["Pending Verification", "Verified & Paid", "Rejected"] },
+        "deliveryStatus": { "type": "string", "enum": ["Preparing Package", "Delivered", "On Hold"] },
+        "deliveryPackageNotes": { "type": "string", "maxLength": 2000 },
+        "downloadLink": { "type": "string", "maxLength": 2000 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["orderNumber", "websiteId", "websiteTitle", "amount", "currency", "customerName", "customerEmail", "paymentStatus", "deliveryStatus", "createdAt"]
+    },
+    "OrderPublicStatus": {
+      "title": "OrderPublicStatus",
+      "description": "Sanitized order tracking status without customer PII",
+      "type": "object",
+      "properties": {
+        "orderNumber": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "websiteTitle": { "type": "string", "minLength": 1, "maxLength": 250 },
+        "amount": { "type": "number" },
+        "currency": { "type": "string", "maxLength": 10 },
+        "licenseType": { "type": "string", "maxLength": 120 },
+        "preferredPaymentMethod": { "type": "string", "maxLength": 120 },
+        "paymentStatus": { "type": "string", "enum": ["Pending Verification", "Verified & Paid", "Rejected"] },
+        "deliveryStatus": { "type": "string", "enum": ["Preparing Package", "Delivered", "On Hold"] },
+        "deliveryPackageNotes": { "type": "string", "maxLength": 2000 },
+        "downloadLink": { "type": "string", "maxLength": 2000 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["orderNumber", "websiteTitle", "amount", "currency", "paymentStatus", "deliveryStatus", "createdAt"]
+    },
+    "TeamMember": {
+      "title": "TeamMember",
+      "description": "Authorized team member invited by an Owner",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "email": { "type": "string", "minLength": 3, "maxLength": 200 },
+        "name": { "type": "string", "maxLength": 120 },
+        "role": { "type": "string", "enum": ["member"] },
+        "addedAt": { "type": "string", "format": "date-time" },
+        "addedBy": { "type": "string", "maxLength": 200 }
+      },
+      "required": ["id", "email", "role", "addedAt", "addedBy"]
+    }
+  },
+  "firestore": {
+    "/listings/{listingId}": {
+      "schema": { "$ref": "#/entities/WebsiteListing" },
+      "description": "Published and draft ready-made website packages"
+    },
+    "/settings/public": {
+      "schema": { "$ref": "#/entities/PublicSettings" },
+      "description": "Public storefront contact details, social links, and statistics visibility"
+    },
+    "/faqs/{faqId}": {
+      "schema": { "$ref": "#/entities/FAQItem" },
+      "description": "Storefront FAQ entries"
+    },
+    "/categories/{categoryId}": {
+      "schema": { "$ref": "#/entities/CategoryItem" },
+      "description": "Marketplace website categories"
+    },
+    "/inquiries/{inquiryId}": {
+      "schema": { "$ref": "#/entities/CustomInquiry" },
+      "description": "Customer inquiries and custom website project requests"
+    },
+    "/orders/{orderNumber}": {
+      "schema": { "$ref": "#/entities/PurchaseOrder" },
+      "description": "Purchase orders with customer details (Owner access only for reads)"
+    },
+    "/orderStatuses/{orderNumber}": {
+      "schema": { "$ref": "#/entities/OrderPublicStatus" },
+      "description": "Non-PII order status lookup document for customer tracking by orderNumber"
+    },
+    "/teamMembers/{memberId}": {
+      "schema": { "$ref": "#/entities/TeamMember" },
+      "description": "Invited team members with add/edit permissions"
+    }
+  }
+}

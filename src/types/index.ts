@@ -81,6 +81,10 @@ export interface PublicSettings {
   showStatistics: boolean;
   completedProjectsCount: number;
   socialLinks: {
+    tiktok?: string;
+    instagram?: string;
+    facebook?: string;
+    youtube?: string;
     github?: string;
     linkedin?: string;
     twitter?: string;

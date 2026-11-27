@@ -1,0 +1,392 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ---------------------------------------------------------
+    // Global Safety Net (Default Deny)
+    // ---------------------------------------------------------
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // ---------------------------------------------------------
+    // Global Primitives & Identity Helpers
+    // ---------------------------------------------------------
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn() &&
+        request.auth.token.email is string &&
+        request.auth.token.email_verified == true;
+    }
+
+    function isOwner() {
+      return isVerifiedUser() &&
+        request.auth.token.email.lower() in [
+          'smartdeveloper125@gmail.com',
+          'umairkamboh953@gmail.com'
+        ];
+    }
+
+    function teamMemberDocId(email) {
+      return email.lower().replace('[^a-z0-9_-]', '_');
+    }
+
+    function isTeamMember() {
+      return isVerifiedUser() &&
+        exists(/databases/$(database)/documents/teamMembers/$(teamMemberDocId(request.auth.token.email)));
+    }
+
+    function isValidString(val, minLen, maxLen) {
+      return val is string && val.size() >= minLen && val.size() <= maxLen;
+    }
+
+    function isValidStringList(arr, maxItems) {
+      return arr is list &&
+        arr.size() <= maxItems &&
+        (arr.size() == 0 || (arr[0] is string && arr[0].size() <= 2000));
+    }
+
+    // ---------------------------------------------------------
+    // Entity Validation Blueprints
+    // ---------------------------------------------------------
+    function isValidListing(data, docId) {
+      let requiredKeys = [
+        'id', 'title', 'slug', 'category', 'pricePKR', 'priceUSD',
+        'featured', 'published', 'thumbnail', 'liveDemoUrl', 'createdAt', 'updatedAt'
+      ];
+      let allowedKeys = [
+        'id', 'title', 'slug', 'category', 'shortDescription', 'fullDescription',
+        'pricePKR', 'priceUSD', 'featured', 'published', 'thumbnail', 'screenshots',
+        'liveDemoUrl', 'sourceCodeAvailable', 'sourceCodeUrl', 'sourceCodeNotes',
+        'sourceCodeFile', 'customizationAvailable', 'techStack', 'includedPages',
+        'responsiveSpecs', 'whatYouReceive', 'customizationServices', 'demoType',
+        'createdByEmail', 'createdAt', 'updatedAt'
+      ];
+      return data.keys().hasAll(requiredKeys) &&
+        data.keys().hasOnly(allowedKeys) &&
+        data.id == docId &&
+        isValidId(data.id) &&
+        isValidString(data.title, 1, 200) &&
+        isValidString(data.slug, 1, 200) &&
+        isValidString(data.category, 1, 100) &&
+        (!('shortDescription' in data) || isValidString(data.shortDescription, 0, 1000)) &&
+        (!('fullDescription' in data) || isValidString(data.fullDescription, 0, 10000)) &&
+        data.pricePKR is number && data.pricePKR >= 0 && data.pricePKR <= 100000000 &&
+        data.priceUSD is number && data.priceUSD >= 0 && data.priceUSD <= 1000000 &&
+        data.featured is bool &&
+        data.published is bool &&
+        isValidString(data.thumbnail, 1, 500000) &&
+        (!('screenshots' in data) || (data.screenshots is list && data.screenshots.size() <= 20 && (data.screenshots.size() == 0 || (data.screenshots[0] is string && data.screenshots[0].size() <= 500000)))) &&
+        isValidString(data.liveDemoUrl, 0, 2000) &&
+        (!('sourceCodeAvailable' in data) || data.sourceCodeAvailable is bool) &&
+        (!('sourceCodeUrl' in data) || isValidString(data.sourceCodeUrl, 0, 2000)) &&
+        (!('sourceCodeNotes' in data) || isValidString(data.sourceCodeNotes, 0, 2000)) &&
+        (!('sourceCodeFile' in data) || isValidString(data.sourceCodeFile, 0, 2000)) &&
+        (!('customizationAvailable' in data) || data.customizationAvailable is bool) &&
+        (!('techStack' in data) || isValidStringList(data.techStack, 30)) &&
+        (!('includedPages' in data) || isValidStringList(data.includedPages, 30)) &&
+        (!('responsiveSpecs' in data) || isValidString(data.responsiveSpecs, 0, 1000)) &&
+        (!('whatYouReceive' in data) || isValidStringList(data.whatYouReceive, 30)) &&
+        (!('customizationServices' in data) || (data.customizationServices is list && data.customizationServices.size() <= 20)) &&
+        (!('demoType' in data) || data.demoType in ['ecommerce', 'realestate', 'fashion', 'saas', 'portfolio', 'restaurant', 'generic']) &&
+        (!('createdByEmail' in data) || isValidString(data.createdByEmail, 0, 200)) &&
+        isValidString(data.createdAt, 1, 64) &&
+        isValidString(data.updatedAt, 1, 64);
+    }
+
+    function isValidSocialLinks(links) {
+      let allowedSocialKeys = ['tiktok', 'instagram', 'facebook', 'youtube', 'github', 'linkedin', 'twitter'];
+      return links is map &&
+        links.keys().hasOnly(allowedSocialKeys) &&
+        (!('tiktok' in links) || isValidString(links.tiktok, 0, 500)) &&
+        (!('instagram' in links) || isValidString(links.instagram, 0, 500)) &&
+        (!('facebook' in links) || isValidString(links.facebook, 0, 500)) &&
+        (!('youtube' in links) || isValidString(links.youtube, 0, 500)) &&
+        (!('github' in links) || isValidString(links.github, 0, 500)) &&
+        (!('linkedin' in links) || isValidString(links.linkedin, 0, 500)) &&
+        (!('twitter' in links) || isValidString(links.twitter, 0, 500));
+    }
+
+    function isValidPublicSettings(data) {
+      let requiredKeys = ['businessEmail', 'whatsappNumber', 'whatsappEnabled', 'showStatistics', 'completedProjectsCount', 'socialLinks'];
+      let allowedKeys = ['businessEmail', 'whatsappNumber', 'whatsappEnabled', 'showStatistics', 'completedProjectsCount', 'socialLinks', 'updatedAt'];
+      return data.keys().hasAll(requiredKeys) &&
+        data.keys().hasOnly(allowedKeys) &&
+        isValidString(data.businessEmail, 3, 200) &&
+        isValidString(data.whatsappNumber, 0, 50) &&
+        data.whatsappEnabled is bool &&
+        data.showStatistics is bool &&
+        data.completedProjectsCount is number && data.completedProjectsCount >= 0 && data.completedProjectsCount <= 100000 &&
+        isValidSocialLinks(data.socialLinks) &&
+        (!('updatedAt' in data) || isValidString(data.updatedAt, 0, 64));
+    }
+
+    function isValidFaq(data, docId) {
+      return data.keys().hasAll(['id', 'question', 'answer', 'category']) &&
+        data.keys().hasOnly(['id', 'question', 'answer', 'category']) &&
+        data.id == docId &&
+        isValidId(data.id) &&
+        isValidString(data.question, 1, 500) &&
+        isValidString(data.answer, 1, 5000) &&
+        isValidString(data.category, 1, 100);
+    }
+
+    function isValidCategory(data, docId) {
+      return data.keys().hasAll(['id', 'name']) &&
+        data.keys().hasOnly(['id', 'name', 'order']) &&
+        data.id == docId &&
+        isValidId(data.id) &&
+        isValidString(data.name, 1, 100) &&
+        (!('order' in data) || (data.order is number && data.order >= 0 && data.order <= 10000));
+    }
+
+    function isValidInquiry(data, docId) {
+      let requiredKeys = ['id', 'fullName', 'email', 'projectDescription', 'status', 'createdAt'];
+      let allowedKeys = [
+        'id', 'fullName', 'email', 'businessName', 'country', 'websiteType',
+        'requiredFeatures', 'budgetRange', 'desiredCompletionDate', 'referenceUrl',
+        'projectDescription', 'status', 'adminNotes', 'createdAt'
+      ];
+      return data.keys().hasAll(requiredKeys) &&
+        data.keys().hasOnly(allowedKeys) &&
+        data.id == docId &&
+        isValidId(data.id) &&
+        isValidString(data.fullName, 1, 200) &&
+        isValidString(data.email, 3, 200) &&
+        (!('businessName' in data) || isValidString(data.businessName, 0, 200)) &&
+        (!('country' in data) || isValidString(data.country, 0, 100)) &&
+        (!('websiteType' in data) || isValidString(data.websiteType, 0, 150)) &&
+        (!('requiredFeatures' in data) || isValidStringList(data.requiredFeatures, 30)) &&
+        (!('budgetRange' in data) || isValidString(data.budgetRange, 0, 100)) &&
+        (!('desiredCompletionDate' in data) || isValidString(data.desiredCompletionDate, 0, 100)) &&
+        (!('referenceUrl' in data) || isValidString(data.referenceUrl, 0, 1000)) &&
+        isValidString(data.projectDescription, 1, 5000) &&
+        data.status in ['New', 'In Review', 'Quoted', 'In Progress', 'Completed', 'Archived'] &&
+        (!('adminNotes' in data) || isValidString(data.adminNotes, 0, 3000)) &&
+        isValidString(data.createdAt, 1, 64);
+    }
+
+    function isValidOrder(data, docId) {
+      let requiredKeys = [
+        'orderNumber', 'websiteId', 'websiteTitle', 'amount', 'currency',
+        'customerName', 'customerEmail', 'paymentStatus', 'deliveryStatus', 'createdAt'
+      ];
+      let allowedKeys = [
+        'orderNumber', 'websiteId', 'websiteTitle', 'amount', 'currency',
+        'customerName', 'customerEmail', 'customerPhone', 'customerCountry',
+        'licenseType', 'preferredPaymentMethod', 'customizationAddons', 'customerNotes',
+        'paymentStatus', 'deliveryStatus', 'deliveryPackageNotes', 'downloadLink', 'createdAt'
+      ];
+      return data.keys().hasAll(requiredKeys) &&
+        data.keys().hasOnly(allowedKeys) &&
+        data.orderNumber == docId &&
+        isValidId(data.orderNumber) &&
+        isValidString(data.websiteId, 1, 128) &&
+        isValidString(data.websiteTitle, 1, 250) &&
+        data.amount is number && data.amount >= 0 && data.amount <= 100000000 &&
+        isValidString(data.currency, 1, 10) &&
+        isValidString(data.customerName, 1, 200) &&
+        isValidString(data.customerEmail, 3, 200) &&
+        (!('customerPhone' in data) || isValidString(data.customerPhone, 0, 50)) &&
+        (!('customerCountry' in data) || isValidString(data.customerCountry, 0, 100)) &&
+        (!('licenseType' in data) || isValidString(data.licenseType, 0, 120)) &&
+        (!('preferredPaymentMethod' in data) || isValidString(data.preferredPaymentMethod, 0, 120)) &&
+        (!('customizationAddons' in data) || isValidStringList(data.customizationAddons, 20)) &&
+        (!('customerNotes' in data) || isValidString(data.customerNotes, 0, 2000)) &&
+        data.paymentStatus in ['Pending Verification', 'Verified & Paid', 'Rejected'] &&
+        data.deliveryStatus in ['Preparing Package', 'Delivered', 'On Hold'] &&
+        (!('deliveryPackageNotes' in data) || isValidString(data.deliveryPackageNotes, 0, 2000)) &&
+        (!('downloadLink' in data) || isValidString(data.downloadLink, 0, 2000)) &&
+        isValidString(data.createdAt, 1, 64);
+    }
+
+    function isValidOrderPublicStatus(data, docId) {
+      let requiredKeys = ['orderNumber', 'websiteTitle', 'amount', 'currency', 'paymentStatus', 'deliveryStatus', 'createdAt'];
+      let allowedKeys = [
+        'orderNumber', 'websiteTitle', 'amount', 'currency', 'licenseType',
+        'preferredPaymentMethod', 'paymentStatus', 'deliveryStatus',
+        'deliveryPackageNotes', 'downloadLink', 'createdAt'
+      ];
+      return data.keys().hasAll(requiredKeys) &&
+        data.keys().hasOnly(allowedKeys) &&
+        data.orderNumber == docId &&
+        isValidId(data.orderNumber) &&
+        isValidString(data.websiteTitle, 1, 250) &&
+        data.amount is number && data.amount >= 0 && data.amount <= 100000000 &&
+        isValidString(data.currency, 1, 10) &&
+        (!('licenseType' in data) || isValidString(data.licenseType, 0, 120)) &&
+        (!('preferredPaymentMethod' in data) || isValidString(data.preferredPaymentMethod, 0, 120)) &&
+        data.paymentStatus in ['Pending Verification', 'Verified & Paid', 'Rejected'] &&
+        data.deliveryStatus in ['Preparing Package', 'Delivered', 'On Hold'] &&
+        (!('deliveryPackageNotes' in data) || isValidString(data.deliveryPackageNotes, 0, 2000)) &&
+        (!('downloadLink' in data) || isValidString(data.downloadLink, 0, 2000)) &&
+        isValidString(data.createdAt, 1, 64);
+    }
+
+    function isValidTeamMember(data, docId) {
+      return data.keys().hasAll(['id', 'email', 'role', 'addedAt', 'addedBy']) &&
+        data.keys().hasOnly(['id', 'email', 'name', 'role', 'addedAt', 'addedBy']) &&
+        data.id == docId &&
+        isValidId(data.id) &&
+        isValidString(data.email, 3, 200) &&
+        data.id == teamMemberDocId(data.email) &&
+        (!('name' in data) || isValidString(data.name, 0, 120)) &&
+        data.role == 'member' &&
+        isValidString(data.addedAt, 1, 64) &&
+        isValidString(data.addedBy, 3, 200);
+    }
+
+    // ---------------------------------------------------------
+    // Collection Rules
+    // ---------------------------------------------------------
+
+    // Connection check doc
+    match /test/connection {
+      allow get: if true;
+      allow list, write: if false;
+    }
+
+    // Website listings
+    match /listings/{listingId} {
+      allow get: if isValidId(listingId) && (
+        resource.data.published == true || isOwner() || isTeamMember()
+      );
+      allow list: if resource.data.published == true ||
+        isOwner() ||
+        (isVerifiedUser() && resource.data.createdByEmail == request.auth.token.email.lower());
+
+      allow create: if isValidId(listingId) &&
+        isValidListing(incoming(), listingId) &&
+        (isOwner() || isTeamMember()) &&
+        (!('createdByEmail' in incoming()) || incoming().createdByEmail == request.auth.token.email.lower());
+
+      allow update: if isValidId(listingId) &&
+        isValidListing(incoming(), listingId) &&
+        incoming().createdAt == existing().createdAt &&
+        (
+          isOwner() ||
+          (isTeamMember() && incoming().diff(existing()).affectedKeys().hasOnly([
+            'title', 'slug', 'category', 'shortDescription', 'fullDescription',
+            'pricePKR', 'priceUSD', 'featured', 'published', 'thumbnail', 'screenshots',
+            'liveDemoUrl', 'sourceCodeAvailable', 'sourceCodeUrl', 'sourceCodeNotes',
+            'sourceCodeFile', 'customizationAvailable', 'techStack', 'includedPages',
+            'responsiveSpecs', 'whatYouReceive', 'customizationServices', 'demoType', 'updatedAt'
+          ]))
+        );
+
+      allow delete: if isValidId(listingId) && isOwner();
+    }
+
+    // Public settings (contact info, social links, homepage stats toggle)
+    match /settings/public {
+      allow get: if true;
+      allow list: if false;
+      allow create: if isOwner() && isValidPublicSettings(incoming());
+      allow update: if isOwner() && isValidPublicSettings(incoming());
+      allow delete: if false;
+    }
+
+    // FAQs
+    match /faqs/{faqId} {
+      allow get: if isValidId(faqId);
+      allow list: if true;
+      allow create: if isValidId(faqId) && isValidFaq(incoming(), faqId) && (isOwner() || isTeamMember());
+      allow update: if isValidId(faqId) && isValidFaq(incoming(), faqId) && (isOwner() || isTeamMember());
+      allow delete: if isValidId(faqId) && isOwner();
+    }
+
+    // Categories
+    match /categories/{categoryId} {
+      allow get: if isValidId(categoryId);
+      allow list: if true;
+      allow create: if isValidId(categoryId) && isValidCategory(incoming(), categoryId) && (isOwner() || isTeamMember());
+      allow update: if isValidId(categoryId) && isValidCategory(incoming(), categoryId) && (isOwner() || isTeamMember());
+      allow delete: if isValidId(categoryId) && isOwner();
+    }
+
+    // Custom inquiries & direct messages (contains PII)
+    match /inquiries/{inquiryId} {
+      allow get: if isValidId(inquiryId) && isOwner();
+      allow list: if isOwner();
+      allow create: if isValidId(inquiryId) &&
+        isValidInquiry(incoming(), inquiryId) &&
+        incoming().status == 'New' &&
+        (!('adminNotes' in incoming()) || incoming().adminNotes == '');
+      allow update: if isValidId(inquiryId) &&
+        isOwner() &&
+        isValidInquiry(incoming(), inquiryId) &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().diff(existing()).affectedKeys().hasOnly(['status', 'adminNotes']);
+      allow delete: if isValidId(inquiryId) && isOwner();
+    }
+
+    // Purchase orders (contains customer PII - Owner read/update/delete only)
+    match /orders/{orderNumber} {
+      allow get: if isValidId(orderNumber) && isOwner();
+      allow list: if isOwner();
+      allow create: if isValidId(orderNumber) &&
+        isValidOrder(incoming(), orderNumber) &&
+        incoming().paymentStatus == 'Pending Verification' &&
+        incoming().deliveryStatus == 'Preparing Package' &&
+        !('downloadLink' in incoming()) &&
+        !('deliveryPackageNotes' in incoming()) &&
+        existsAfter(/databases/$(database)/documents/orderStatuses/$(orderNumber));
+      allow update: if isValidId(orderNumber) &&
+        isOwner() &&
+        isValidOrder(incoming(), orderNumber) &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().diff(existing()).affectedKeys().hasOnly([
+          'paymentStatus', 'deliveryStatus', 'deliveryPackageNotes', 'downloadLink'
+        ]);
+      allow delete: if isValidId(orderNumber) && isOwner();
+    }
+
+    // Non-PII public order tracking lookup (get by exact orderNumber only; no list)
+    match /orderStatuses/{orderNumber} {
+      allow get: if isValidId(orderNumber);
+      allow list: if false;
+      allow create: if isValidId(orderNumber) &&
+        isValidOrderPublicStatus(incoming(), orderNumber) &&
+        incoming().paymentStatus == 'Pending Verification' &&
+        incoming().deliveryStatus == 'Preparing Package' &&
+        !('downloadLink' in incoming()) &&
+        !('deliveryPackageNotes' in incoming()) &&
+        existsAfter(/databases/$(database)/documents/orders/$(orderNumber));
+      allow update: if isValidId(orderNumber) &&
+        isOwner() &&
+        isValidOrderPublicStatus(incoming(), orderNumber) &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().diff(existing()).affectedKeys().hasOnly([
+          'paymentStatus', 'deliveryStatus', 'deliveryPackageNotes', 'downloadLink'
+        ]);
+      allow delete: if isValidId(orderNumber) && isOwner();
+    }
+
+    // Invited Team Members (Owner manages, verified member can read own invite doc)
+    match /teamMembers/{memberId} {
+      allow get: if isValidId(memberId) && (
+        isOwner() ||
+        (isVerifiedUser() && resource != null && resource.data.email == request.auth.token.email.lower())
+      );
+      allow list: if isOwner();
+      allow create: if isValidId(memberId) && isOwner() && isValidTeamMember(incoming(), memberId);
+      allow update: if isValidId(memberId) && isOwner() && isValidTeamMember(incoming(), memberId) && incoming().addedAt == existing().addedAt;
+      allow delete: if isValidId(memberId) && isOwner();
+    }
+  }
+}

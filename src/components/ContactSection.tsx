@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { PublicSettings } from '../types';
 import { Mail, MessageSquare, Send, CheckCircle2, Clock, Globe2, AlertCircle } from 'lucide-react';
 import { safeFetchJson } from '../utils/api';
+import { firestoreService } from '../utils/firestoreService';
+import { SocialLinksBar } from './SocialLinksBar';
 
 interface ContactSectionProps {
   settings: PublicSettings;
@@ -28,27 +30,24 @@ export const ContactSection: React.FC<ContactSectionProps> = ({ settings }) => {
     setLoading(true);
 
     try {
-      const res = await safeFetchJson<{ success: boolean; error?: string }>('/api/inquiries', {
+      const inquiryPayload = {
+        fullName: name,
+        email,
+        businessName: subject || 'General Inquiry',
+        country: 'Direct Message',
+        websiteType: 'General Consultation',
+        requiredFeatures: [] as string[],
+        budgetRange: 'Consultation',
+        projectDescription: message
+      };
+
+      await firestoreService.createInquiry(inquiryPayload);
+
+      safeFetchJson('/api/inquiries', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          fullName: name,
-          email,
-          businessName: subject || 'General Inquiry',
-          country: 'Direct Message',
-          websiteType: 'General Consultation',
-          requiredFeatures: [],
-          budgetRange: 'Consultation',
-          projectDescription: message
-        })
-      });
-
-      if (!res.ok && res.status !== 0) {
-        // Only throw if server explicitly rejected; on static Cloudflare, accept locally
-        if (res.status === 400) {
-          throw new Error(res.error || 'Please fill in all required fields.');
-        }
-      }
+        body: JSON.stringify(inquiryPayload)
+      }).catch(() => {});
 
       setSuccess(true);
       setName('');
@@ -138,6 +137,13 @@ export const ContactSection: React.FC<ContactSectionProps> = ({ settings }) => {
                   </span>
                 </div>
               </div>
+            </div>
+
+            <div className="pt-4 border-t border-white/10 space-y-2.5">
+              <span className="text-[10px] sm:text-[11px] text-slate-400 block uppercase font-semibold tracking-wider">
+                Social Media Channels
+              </span>
+              <SocialLinksBar socialLinks={settings.socialLinks} showLabels />
             </div>
           </div>
 

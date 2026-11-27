@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X, Search, CheckCircle2, Clock, AlertCircle, Download, FileText, Loader2 } from 'lucide-react';
 import { safeFetchJson } from '../utils/api';
+import { firestoreService } from '../utils/firestoreService';
 
 interface OrderStatusModalProps {
   onClose: () => void;
@@ -21,11 +22,17 @@ export const OrderStatusModal: React.FC<OrderStatusModalProps> = ({ onClose }) =
     setOrderData(null);
 
     try {
+      const cloudStatus = await firestoreService.lookupOrderStatus(orderQuery);
+      if (cloudStatus) {
+        setOrderData(cloudStatus);
+        return;
+      }
+
       const res = await safeFetchJson<{ success: boolean; order: any; error?: string }>(
         `/api/orders/${encodeURIComponent(orderQuery.trim().toUpperCase())}`
       );
       if (!res.ok || !res.data?.order) {
-        throw new Error(res.error || 'Order reference not found.');
+        throw new Error('Order reference not found.');
       }
       setOrderData(res.data.order);
     } catch (err: any) {

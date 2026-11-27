@@ -1,5 +1,7 @@
 import { WebsiteListing, PublicSettings, FAQItem, CustomInquiry, PurchaseOrder } from '../types';
 import { safeFetchJson } from './api';
+import { firestoreService } from './firestoreService';
+import { auth } from '../firebase';
 
 const STORAGE_KEYS = {
   LISTINGS: 'smart_developer_listings_v2',
@@ -18,6 +20,10 @@ export const INITIAL_PUBLIC_SETTINGS: PublicSettings = {
   showStatistics: false,
   completedProjectsCount: 24,
   socialLinks: {
+    tiktok: '',
+    instagram: '',
+    facebook: '',
+    youtube: '',
     github: '',
     linkedin: '',
     twitter: ''
@@ -302,18 +308,28 @@ export function notifyDataChanged() {
   }
 }
 
-// Client Storage Service with API sync & local fallback
+// Client Storage Service with Cloud Firestore sync + API & local cache fallback
 export const storageService = {
-  // Load public listings
+  // Load public listings (Cloud Firestore first so all devices stay in sync)
   async getListings(): Promise<WebsiteListing[]> {
-    // 1. Try API first
+    try {
+      const cloudListings = await firestoreService.getPublishedListings();
+      if (cloudListings && cloudListings.length > 0) {
+        localStorage.setItem(STORAGE_KEYS.LISTINGS, JSON.stringify(cloudListings));
+        return cloudListings;
+      }
+    } catch (err) {
+      console.warn('Firestore getListings fallback:', err);
+    }
+
+    // 2. Try Express API if available
     const res = await safeFetchJson<{ success: boolean; listings: WebsiteListing[] }>('/api/listings');
     if (res.ok && res.data?.listings && Array.isArray(res.data.listings) && res.data.listings.length > 0) {
       localStorage.setItem(STORAGE_KEYS.LISTINGS, JSON.stringify(res.data.listings));
       return res.data.listings;
     }
 
-    // 2. Fall back to cached local storage
+    // 3. Fall back to cached local storage
     const cached = localStorage.getItem(STORAGE_KEYS.LISTINGS);
     if (cached) {
       try {
@@ -321,22 +337,34 @@ export const storageService = {
         if (Array.isArray(parsed) && parsed.length > 0) {
           return parsed;
         }
-      } catch (e) {
+      } catch {
         // invalid cache
       }
     }
 
-    // 3. Fall back to initial listings
+    // 4. Fall back to initial listings
     localStorage.setItem(STORAGE_KEYS.LISTINGS, JSON.stringify(INITIAL_LISTINGS));
     return INITIAL_LISTINGS;
   },
 
-  // Load public settings
+  // Load public settings (Cloud Firestore first)
   async getSettings(): Promise<PublicSettings> {
+    try {
+      const cloudSettings = await firestoreService.getPublicSettings();
+      if (cloudSettings) {
+        const merged = { ...INITIAL_PUBLIC_SETTINGS, ...cloudSettings };
+        localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(merged));
+        return merged;
+      }
+    } catch (err) {
+      console.warn('Firestore getSettings fallback:', err);
+    }
+
     const res = await safeFetchJson<{ success: boolean; settings: PublicSettings }>('/api/settings');
     if (res.ok && res.data?.settings) {
-      localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(res.data.settings));
-      return res.data.settings;
+      const merged = { ...INITIAL_PUBLIC_SETTINGS, ...res.data.settings };
+      localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(merged));
+      return merged;
     }
 
     const cached = localStorage.getItem(STORAGE_KEYS.SETTINGS);
@@ -346,7 +374,7 @@ export const storageService = {
         if (parsed && typeof parsed === 'object') {
           return { ...INITIAL_PUBLIC_SETTINGS, ...parsed };
         }
-      } catch (e) {
+      } catch {
         // ignore
       }
     }
@@ -355,8 +383,18 @@ export const storageService = {
     return INITIAL_PUBLIC_SETTINGS;
   },
 
-  // Load FAQs
+  // Load FAQs (Cloud Firestore first)
   async getFaqs(): Promise<FAQItem[]> {
+    try {
+      const cloudFaqs = await firestoreService.getFaqs();
+      if (cloudFaqs && cloudFaqs.length > 0) {
+        localStorage.setItem(STORAGE_KEYS.FAQS, JSON.stringify(cloudFaqs));
+        return cloudFaqs;
+      }
+    } catch (err) {
+      console.warn('Firestore getFaqs fallback:', err);
+    }
+
     const res = await safeFetchJson<{ success: boolean; faqs: FAQItem[] }>('/api/faqs');
     if (res.ok && res.data?.faqs && Array.isArray(res.data.faqs) && res.data.faqs.length > 0) {
       localStorage.setItem(STORAGE_KEYS.FAQS, JSON.stringify(res.data.faqs));
@@ -368,7 +406,7 @@ export const storageService = {
       try {
         const parsed = JSON.parse(cached);
         if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-      } catch (e) {
+      } catch {
         // ignore
       }
     }
@@ -377,8 +415,18 @@ export const storageService = {
     return INITIAL_FAQS;
   },
 
-  // Load Categories
+  // Load Categories (Cloud Firestore first)
   async getCategories(): Promise<string[]> {
+    try {
+      const cloudCats = await firestoreService.getCategories();
+      if (cloudCats && cloudCats.length > 0) {
+        localStorage.setItem(STORAGE_KEYS.CATEGORIES, JSON.stringify(cloudCats));
+        return cloudCats;
+      }
+    } catch (err) {
+      console.warn('Firestore getCategories fallback:', err);
+    }
+
     const res = await safeFetchJson<{ success: boolean; categories: string[] }>('/api/categories');
     if (res.ok && res.data?.categories && Array.isArray(res.data.categories) && res.data.categories.length > 0) {
       localStorage.setItem(STORAGE_KEYS.CATEGORIES, JSON.stringify(res.data.categories));
@@ -390,7 +438,7 @@ export const storageService = {
       try {
         const parsed = JSON.parse(cached);
         if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-      } catch (e) {
+      } catch {
         // ignore
       }
     }
@@ -399,9 +447,13 @@ export const storageService = {
     return INITIAL_CATEGORIES;
   },
 
-  // Save or Update Listing
+  // Save or Update Listing (Cloud Firestore primary + optional API sync + local cache)
   async saveListing(listing: Partial<WebsiteListing>, token?: string): Promise<WebsiteListing> {
     let savedListing: WebsiteListing | null = null;
+
+    if (auth.currentUser) {
+      savedListing = await firestoreService.saveListing(listing);
+    }
 
     if (token) {
       const res = await safeFetchJson<{ success: boolean; listing: WebsiteListing; error?: string }>('/api/admin/listings', {
@@ -410,77 +462,54 @@ export const storageService = {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`
         },
-        body: JSON.stringify(listing)
+        body: JSON.stringify(savedListing || listing)
       });
-      if (res.ok && res.data?.listing) {
+      if (!savedListing && res.ok && res.data?.listing) {
         savedListing = res.data.listing;
-      } else if (res.isJson && res.status >= 400 && res.status !== 404) {
+      } else if (!savedListing && res.isJson && res.status >= 400 && res.status !== 404) {
         const err = res.data?.error || res.error || 'Server rejected listing save';
-        console.error('saveListing error:', err);
         throw new Error(err);
       }
     }
 
-    // Always update local cache for instant UI feedback and persistence
-    const currentListings = await this.getListings();
     if (!savedListing) {
-      const id = listing.id || `web-${Date.now()}`;
-      savedListing = {
-        id,
-        title: listing.title || 'Untitled Website',
-        slug: listing.slug || (listing.title ? listing.title.toLowerCase().replace(/[^a-z0-9]+/g, '-') : id),
-        category: listing.category || 'Business Websites',
-        shortDescription: listing.shortDescription || '',
-        fullDescription: listing.fullDescription || '',
-        pricePKR: Number(listing.pricePKR) || (listing.priceUSD ? Math.round(Number(listing.priceUSD) * 278.5) : 25000),
-        priceUSD: Number(listing.priceUSD) || (listing.pricePKR ? Math.round(Number(listing.pricePKR) / 278.5) : 90),
-        featured: Boolean(listing.featured),
-        published: listing.published !== false,
-        thumbnail: listing.thumbnail || '/assets/images/hero_showcase_dark_1792311614014.jpg',
-        screenshots: listing.screenshots || [],
-        liveDemoUrl: listing.liveDemoUrl || '#demo',
-        sourceCodeAvailable: listing.sourceCodeAvailable !== false,
-        sourceCodeUrl: listing.sourceCodeUrl || '',
-        sourceCodeNotes: listing.sourceCodeNotes || '',
-        sourceCodeFile: listing.sourceCodeFile || '',
-        customizationAvailable: listing.customizationAvailable !== false,
-        techStack: listing.techStack || ['React 19', 'Tailwind CSS v4'],
-        includedPages: listing.includedPages || ['Home', 'About', 'Contact'],
-        responsiveSpecs: listing.responsiveSpecs || '100% fluid responsive design',
-        whatYouReceive: listing.whatYouReceive || ['Complete source code', 'Documentation', 'Support'],
-        customizationServices: listing.customizationServices || [],
-        demoType: (listing.demoType as any) || 'generic',
-        createdAt: listing.createdAt || new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      };
+      throw new Error('Please sign in with your authorized Google account to save listings to the cloud database.');
     }
 
+    const currentListings = await this.getListings().catch(() => INITIAL_LISTINGS);
     const idx = currentListings.findIndex((l) => l.id === savedListing!.id);
-    let updatedListings: WebsiteListing[];
-    if (idx !== -1) {
-      updatedListings = [...currentListings];
-      updatedListings[idx] = savedListing;
-    } else {
-      updatedListings = [savedListing, ...currentListings];
-    }
+    const updatedListings = idx !== -1
+      ? currentListings.map((l, i) => (i === idx ? savedListing! : l))
+      : [savedListing, ...currentListings];
 
     localStorage.setItem(STORAGE_KEYS.LISTINGS, JSON.stringify(updatedListings));
     notifyDataChanged();
     return savedListing;
   },
 
-  // Delete Listing
+  // Delete Listing (Cloud Firestore primary + optional API sync)
   async deleteListing(id: string, token?: string): Promise<boolean> {
+    if (auth.currentUser) {
+      await firestoreService.deleteListing(id);
+    }
+
     if (token) {
       await safeFetchJson(`/api/admin/listings/${id}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` }
-      });
+      }).catch(() => {});
     }
 
-    const current = await this.getListings();
-    const filtered = current.filter((l) => l.id !== id);
-    localStorage.setItem(STORAGE_KEYS.LISTINGS, JSON.stringify(filtered));
+    const cached = localStorage.getItem(STORAGE_KEYS.LISTINGS);
+    if (cached) {
+      try {
+        const parsed = JSON.parse(cached) as WebsiteListing[];
+        const filtered = parsed.filter((l) => l.id !== id);
+        localStorage.setItem(STORAGE_KEYS.LISTINGS, JSON.stringify(filtered));
+      } catch {
+        // ignore
+      }
+    }
     notifyDataChanged();
     return true;
   }

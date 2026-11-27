@@ -32,7 +32,7 @@ let edgeStore = {
     whatsappEnabled: true,
     showStatistics: false,
     completedProjectsCount: 24,
-    socialLinks: { github: '', linkedin: '', twitter: '' }
+    socialLinks: { tiktok: '', instagram: '', facebook: '', youtube: '', github: '', linkedin: '', twitter: '' }
   },
   adminPassword: DEFAULT_ADMIN_PASSWORD,
   sessionTokens: new Set<string>()
@@ -207,6 +207,24 @@ export const onRequest: PagesFunction = async (context) => {
     return jsonResponse({
       success: true,
       url: body.dataUrl
+    });
+  }
+
+  if (path === '/api/admin/settings' && method === 'POST') {
+    const body = await readJson();
+    if (body) {
+      edgeStore.settings = {
+        ...edgeStore.settings,
+        ...body,
+        socialLinks: {
+          ...edgeStore.settings.socialLinks,
+          ...(body.socialLinks || {})
+        }
+      };
+    }
+    return jsonResponse({
+      success: true,
+      settings: edgeStore.settings
     });
   }
 

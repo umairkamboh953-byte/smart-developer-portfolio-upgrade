@@ -2,6 +2,7 @@ import React from 'react';
 import { PublicSettings } from '../types';
 import { Mail, MessageSquare, Lock, ExternalLink, ShieldCheck } from 'lucide-react';
 import { BrandLogo } from './BrandLogo';
+import { SocialLinksBar } from './SocialLinksBar';
 
 interface FooterProps {
   settings: PublicSettings;
@@ -69,41 +70,13 @@ export const Footer: React.FC<FooterProps> = ({
               )}
             </div>
 
-            {/* Optional Social Links if configured */}
-            {(settings.socialLinks?.github || settings.socialLinks?.linkedin || settings.socialLinks?.twitter) && (
-              <div className="flex items-center gap-4 pt-2 text-slate-400">
-                {settings.socialLinks.github && (
-                  <a
-                    href={settings.socialLinks.github}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="hover:text-white transition-colors"
-                  >
-                    GitHub
-                  </a>
-                )}
-                {settings.socialLinks.linkedin && (
-                  <a
-                    href={settings.socialLinks.linkedin}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="hover:text-white transition-colors"
-                  >
-                    LinkedIn
-                  </a>
-                )}
-                {settings.socialLinks.twitter && (
-                  <a
-                    href={settings.socialLinks.twitter}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="hover:text-white transition-colors"
-                  >
-                    Twitter/X
-                  </a>
-                )}
-              </div>
-            )}
+            {/* Social Media Links */}
+            <div className="pt-3 space-y-2">
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 block">
+                Follow Us
+              </span>
+              <SocialLinksBar socialLinks={settings.socialLinks} />
+            </div>
           </div>
 
           {/* Col 3: Navigation */}

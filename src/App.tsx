@@ -23,7 +23,10 @@ import { PolicyModal } from './components/PolicyModal';
 import { AdminLoginPage } from './admin/AdminLoginPage';
 import { AdminDashboard } from './admin/AdminDashboard';
 import { ArrowRight, Loader2 } from 'lucide-react';
-import { storageService } from './utils/storage';
+import { storageService, INITIAL_PUBLIC_SETTINGS } from './utils/storage';
+import { firestoreService } from './utils/firestoreService';
+import { auth, isOwnerEmail } from './firebase';
+import { onAuthStateChanged, signOut, User } from 'firebase/auth';
 import { safeFetchJson } from './utils/api';
 
 export default function App() {
@@ -68,7 +71,9 @@ export default function App() {
   const [orderStatusOpen, setOrderStatusOpen] = useState(false);
   const [activePolicy, setActivePolicy] = useState<'terms' | 'privacy' | 'refund' | null>(null);
 
-  // Admin Auth State
+  // Admin Auth State (Backed by Firebase Auth)
+  const [firebaseUser, setFirebaseUser] = useState<User | null>(null);
+  const [authReady, setAuthReady] = useState(false);
   const [adminToken, setAdminToken] = useState<string | null>(() => {
     return localStorage.getItem('smart_developer_admin_token') || null;
   });
@@ -116,19 +121,61 @@ export default function App() {
   useEffect(() => {
     fetchPublicData();
     window.addEventListener('smart_developer_data_changed', fetchPublicData);
+
+    // Real-time Cloud Firestore listeners so updates from any device reflect live everywhere
+    const unsubListings = firestoreService.subscribePublishedListings((items) => {
+      setListings(items);
+      localStorage.setItem('smart_developer_listings_v2', JSON.stringify(items));
+    });
+    const unsubSettings = firestoreService.subscribePublicSettings((cloudSettings) => {
+      const merged = { ...INITIAL_PUBLIC_SETTINGS, ...cloudSettings };
+      setSettings(merged);
+      localStorage.setItem('smart_developer_settings_v2', JSON.stringify(merged));
+    });
+    const unsubFaqs = firestoreService.subscribeFaqs((items) => {
+      setFaqs(items);
+      localStorage.setItem('smart_developer_faqs_v2', JSON.stringify(items));
+    });
+
     return () => {
       window.removeEventListener('smart_developer_data_changed', fetchPublicData);
+      unsubListings();
+      unsubSettings();
+      unsubFaqs();
     };
   }, []);
 
-  // Check admin token validity against server
+  // Synchronize Firebase Auth state for admin portal
+  useEffect(() => {
+    const unsubAuth = onAuthStateChanged(auth, async (user) => {
+      setFirebaseUser(user);
+      if (user?.email) {
+        const cleanEmail = user.email.toLowerCase().trim();
+        const owner = isOwnerEmail(cleanEmail);
+        const member = !owner ? await firestoreService.isInvitedTeamMember(cleanEmail) : false;
+        if (owner || member) {
+          localStorage.setItem('smart_developer_admin_email', cleanEmail);
+          localStorage.setItem('smart_developer_admin_role', owner ? 'owner' : 'member');
+          if (!localStorage.getItem('smart_developer_admin_token')) {
+            const idToken = await user.getIdToken();
+            localStorage.setItem('smart_developer_admin_token', idToken);
+            setAdminToken(idToken);
+          }
+        }
+      }
+      setAuthReady(true);
+    });
+    return () => unsubAuth();
+  }, []);
+
+  // Check Express backend admin token validity if available
   useEffect(() => {
     if (adminToken) {
       safeFetchJson('/api/admin/check-auth', {
         headers: { Authorization: `Bearer ${adminToken}` }
       })
         .then((res) => {
-          if (!res.ok && (res.status === 401 || res.status === 403)) {
+          if (res.isJson && !res.ok && (res.status === 401 || res.status === 403) && !firebaseUser) {
             localStorage.removeItem('smart_developer_admin_token');
             localStorage.removeItem('smart_developer_admin_email');
             localStorage.removeItem('smart_developer_admin_role');
@@ -137,7 +184,7 @@ export default function App() {
         })
         .catch(() => {});
     }
-  }, [adminToken]);
+  }, [adminToken, firebaseUser]);
 
   // Featured listings for homepage
   const featuredListings = listings.filter((l) => l.featured).slice(0, 3);
@@ -172,8 +219,16 @@ export default function App() {
   // ROUTE 1: /admin/login (Dedicated Admin Login Page)
   // -------------------------------------------------------------
   if (currentPath === '/admin/login') {
-    // If already logged in, redirect directly to /admin
-    if (adminToken) {
+    if (!authReady) {
+      return (
+        <div className="min-h-screen bg-[#07080e] flex items-center justify-center text-slate-400 text-xs">
+          <Loader2 className="w-5 h-5 animate-spin mr-2 text-blue-500" />
+          <span>Checking Cloud Authentication...</span>
+        </div>
+      );
+    }
+
+    if (adminToken && firebaseUser) {
       navigateToPath('/admin');
       return null;
     }
@@ -194,8 +249,16 @@ export default function App() {
   // ROUTE 2: /admin (Dedicated Admin Dashboard Page)
   // -------------------------------------------------------------
   if (currentPath === '/admin') {
-    // If not authenticated, redirect to /admin/login
-    if (!adminToken) {
+    if (!authReady) {
+      return (
+        <div className="min-h-screen bg-[#07080e] flex items-center justify-center text-slate-400 text-xs">
+          <Loader2 className="w-5 h-5 animate-spin mr-2 text-blue-500" />
+          <span>Connecting to Cloud Admin Portal...</span>
+        </div>
+      );
+    }
+
+    if (!adminToken || !firebaseUser) {
       navigateToPath('/admin/login');
       return null;
     }
@@ -204,6 +267,7 @@ export default function App() {
       <AdminDashboard
         token={adminToken}
         onLogout={() => {
+          signOut(auth).catch(() => {});
           localStorage.removeItem('smart_developer_admin_token');
           localStorage.removeItem('smart_developer_admin_email');
           localStorage.removeItem('smart_developer_admin_role');

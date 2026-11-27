@@ -54,7 +54,16 @@ import {
 import { ImageWithFallback } from '../components/ImageWithFallback';
 import { BrandLogo } from '../components/BrandLogo';
 import { safeFetchJson } from '../utils/api';
-import { storageService, notifyDataChanged } from '../utils/storage';
+import {
+  storageService,
+  notifyDataChanged,
+  INITIAL_LISTINGS,
+  INITIAL_PUBLIC_SETTINGS,
+  INITIAL_FAQS,
+  INITIAL_CATEGORIES
+} from '../utils/storage';
+import { firestoreService, compressImageFileToDataUrl } from '../utils/firestoreService';
+import { auth, isOwnerEmail } from '../firebase';
 
 interface AdminDashboardProps {
   token: string;
@@ -137,6 +146,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const fetchTeamMembers = async () => {
     try {
+      const activeEmail = (auth.currentUser?.email || userEmail || '').toLowerCase().trim();
+      const activeRole: UserRole = isOwnerEmail(activeEmail) ? 'owner' : 'member';
+      setUserRole(activeRole);
+      if (activeEmail) setUserEmail(activeEmail);
+
+      if (activeRole === 'owner' && auth.currentUser) {
+        const members = await firestoreService.getTeamMembers();
+        setTeamMembers(members);
+        localStorage.setItem('smart_developer_team_members', JSON.stringify(members));
+        return;
+      }
+
       const res = await safeFetchJson<{
         success: boolean;
         teamMembers: TeamMember[];
@@ -146,26 +167,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       }>('/api/admin/team', {
         headers: { Authorization: `Bearer ${token}` }
       });
-      if (res.ok && res.data) {
-        if (res.data.teamMembers) {
-          setTeamMembers(res.data.teamMembers);
-          localStorage.setItem('smart_developer_team_members', JSON.stringify(res.data.teamMembers));
-        }
-        if (res.data.currentRole) {
-          setUserRole(res.data.currentRole);
-          localStorage.setItem('smart_developer_admin_role', res.data.currentRole);
-        }
-        if (res.data.currentEmail) {
-          setUserEmail(res.data.currentEmail);
-          localStorage.setItem('smart_developer_admin_email', res.data.currentEmail);
-        }
-      } else {
-        try {
-          const cachedTeam = JSON.parse(localStorage.getItem('smart_developer_team_members') || '[]');
-          if (Array.isArray(cachedTeam)) setTeamMembers(cachedTeam);
-        } catch {
-          // ignore
-        }
+      if (res.ok && res.data?.teamMembers) {
+        setTeamMembers(res.data.teamMembers);
+        localStorage.setItem('smart_developer_team_members', JSON.stringify(res.data.teamMembers));
       }
     } catch (err) {
       console.error('Error fetching team members:', err);
@@ -175,67 +179,48 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const fetchAdminData = async () => {
     setLoading(true);
     try {
-      const headers = {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`
-      };
+      const activeEmail = (auth.currentUser?.email || localStorage.getItem('smart_developer_admin_email') || userEmail || '').toLowerCase().trim();
+      const activeRole: UserRole = isOwnerEmail(activeEmail) ? 'owner' : 'member';
+      setUserRole(activeRole);
+      if (activeEmail) {
+        setUserEmail(activeEmail);
+        localStorage.setItem('smart_developer_admin_email', activeEmail);
+        localStorage.setItem('smart_developer_admin_role', activeRole);
+      }
 
-      fetchTeamMembers();
+      // Seed Cloud Firestore on first Owner login if empty
+      if (auth.currentUser && activeRole === 'owner') {
+        await firestoreService.ensureInitialSeed(
+          INITIAL_LISTINGS,
+          INITIAL_PUBLIC_SETTINGS,
+          INITIAL_FAQS,
+          INITIAL_CATEGORIES
+        );
+      }
 
-      const [resListings, resInquiries, resOrders, resSettings, resFaqs, resCats] = await Promise.all([
-        safeFetchJson<{ success: boolean; listings: WebsiteListing[] }>('/api/admin/listings', { headers }),
-        safeFetchJson<{ success: boolean; inquiries: CustomInquiry[] }>('/api/admin/inquiries', { headers }),
-        safeFetchJson<{ success: boolean; orders: PurchaseOrder[] }>('/api/admin/orders', { headers }),
-        safeFetchJson<{ success: boolean; settings: PublicSettings }>('/api/admin/settings', { headers }),
-        safeFetchJson<{ success: boolean; faqs: FAQItem[] }>('/api/faqs'),
-        safeFetchJson<{ success: boolean; categories: string[] }>('/api/categories')
+      await fetchTeamMembers();
+
+      const [cloudListings, cloudSettings, cloudFaqs, cloudCats] = await Promise.all([
+        auth.currentUser
+          ? firestoreService.getAdminListings(activeRole, activeEmail)
+          : storageService.getListings(),
+        firestoreService.getPublicSettings(),
+        firestoreService.getFaqs(),
+        firestoreService.getCategories()
       ]);
 
-      if (resListings.status === 401 && !token.startsWith('token_') && !token.startsWith('google_')) {
-        onLogout();
-        return;
-      }
+      setListings(cloudListings.length > 0 ? cloudListings : await storageService.getListings());
+      setSettings(cloudSettings ? { ...INITIAL_PUBLIC_SETTINGS, ...cloudSettings } : await storageService.getSettings());
+      setFaqs(cloudFaqs.length > 0 ? cloudFaqs : await storageService.getFaqs());
+      setCategories(cloudCats.length > 0 ? cloudCats : await storageService.getCategories());
 
-      // Listings: use API or fallback to storageService
-      if (resListings.ok && resListings.data?.listings) {
-        setListings(resListings.data.listings);
-      } else {
-        const stored = await storageService.getListings();
-        setListings(stored);
-      }
-
-      // Inquiries
-      if (resInquiries.ok && resInquiries.data?.inquiries) {
-        setInquiries(resInquiries.data.inquiries);
-      }
-
-      // Orders
-      if (resOrders.ok && resOrders.data?.orders) {
-        setOrders(resOrders.data.orders);
-      }
-
-      // Settings
-      if (resSettings.ok && resSettings.data?.settings) {
-        setSettings(resSettings.data.settings);
-      } else {
-        const storedSettings = await storageService.getSettings();
-        setSettings(storedSettings);
-      }
-
-      // FAQs
-      if (resFaqs.ok && resFaqs.data?.faqs) {
-        setFaqs(resFaqs.data.faqs);
-      } else {
-        const storedFaqs = await storageService.getFaqs();
-        setFaqs(storedFaqs);
-      }
-
-      // Categories
-      if (resCats.ok && resCats.data?.categories) {
-        setCategories(resCats.data.categories);
-      } else {
-        const storedCats = await storageService.getCategories();
-        setCategories(storedCats);
+      if (activeRole === 'owner' && auth.currentUser) {
+        const [cloudInquiries, cloudOrders] = await Promise.all([
+          firestoreService.getInquiries(),
+          firestoreService.getOrders()
+        ]);
+        setInquiries(cloudInquiries);
+        setOrders(cloudOrders);
       }
     } catch (err: any) {
       console.error('Error loading admin records:', err);
@@ -279,50 +264,36 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     });
   }, [orders, orderStatusFilter, orderSearch]);
 
-  // Image Upload handler (Base64 file reading + local and cloud persistence)
+  // Image Upload handler (Compresses image so it syncs cleanly across all devices via Cloud Firestore)
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, field: 'thumbnail' | 'screenshot') => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     setImageUploadLoading(true);
-    const reader = new FileReader();
-    reader.onload = async () => {
-      try {
-        const base64Data = reader.result as string;
-        let finalUrl = base64Data;
-
-        const res = await safeFetchJson<{ success: boolean; url: string }>('/api/admin/upload-image', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`
-          },
-          body: JSON.stringify({ dataUrl: base64Data, filename: file.name })
-        });
-
-        if (res.ok && res.data?.url) {
-          finalUrl = res.data.url;
-        }
-
-        if (editingListing) {
-          if (field === 'thumbnail') {
-            setEditingListing({ ...editingListing, thumbnail: finalUrl });
-          } else {
-            const currentScreenshots = editingListing.screenshots || [];
-            setEditingListing({
-              ...editingListing,
-              screenshots: [...currentScreenshots, finalUrl]
-            });
-          }
-          showNotification('Image uploaded successfully.');
-        }
-      } catch (err: any) {
-        showNotification('Image upload error: ' + (err.message || 'Check connection'));
-      } finally {
-        setImageUploadLoading(false);
+    try {
+      const compressedDataUrl = await compressImageFileToDataUrl(file, 1000, 0.72);
+      if (compressedDataUrl.length > 480000) {
+        showNotification('Image too large after compression. Please use a smaller image or external URL.');
+        return;
       }
-    };
-    reader.readAsDataURL(file);
+
+      if (editingListing) {
+        if (field === 'thumbnail') {
+          setEditingListing({ ...editingListing, thumbnail: compressedDataUrl });
+        } else {
+          const currentScreenshots = editingListing.screenshots || [];
+          setEditingListing({
+            ...editingListing,
+            screenshots: [...currentScreenshots, compressedDataUrl]
+          });
+        }
+        showNotification('Image uploaded and optimized for cloud sync.');
+      }
+    } catch (err: any) {
+      showNotification('Image upload error: ' + (err.message || 'Check file format'));
+    } finally {
+      setImageUploadLoading(false);
+    }
   };
 
 
@@ -478,25 +449,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     if (!name) return;
 
     try {
-      const res = await safeFetchJson<{ success: boolean; categories: string[] }>('/api/admin/categories', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({ name })
-      });
-
-      if (res.ok && res.data?.categories) {
-        setCategories(res.data.categories);
-        localStorage.setItem('smart_developer_categories_v2', JSON.stringify(res.data.categories));
-      } else {
-        const next = Array.from(new Set([...categories, name]));
-        setCategories(next);
-        localStorage.setItem('smart_developer_categories_v2', JSON.stringify(next));
-      }
+      const next = await firestoreService.addCategory(name);
+      setCategories(next);
+      localStorage.setItem('smart_developer_categories_v2', JSON.stringify(next));
       setNewCategoryName('');
-      showNotification('Category added successfully.');
+      showNotification('Category added to cloud database.');
       notifyDataChanged();
     } catch (err: any) {
       showNotification('Add category error: ' + (err.message || 'Error'));
@@ -505,29 +462,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const handleDeleteCategory = async (catName: string) => {
     if (userRole === 'member') {
-      showNotification('Permission Denied: Team members cannot delete categories. Only Owner (smartdeveloper125@gmail.com) can delete.');
+      showNotification('Permission Denied: Team members cannot delete categories. Only Owners can delete.');
       return;
     }
     if (!window.confirm(`Are you sure you want to delete category "${catName}"?`)) {
       return;
     }
     try {
-      const res = await safeFetchJson<{ success: boolean; categories: string[] }>(
-        `/api/admin/categories/${encodeURIComponent(catName)}`,
-        {
-          method: 'DELETE',
-          headers: { Authorization: `Bearer ${token}` }
-        }
-      );
-      if (res.ok && res.data?.categories) {
-        setCategories(res.data.categories);
-        localStorage.setItem('smart_developer_categories_v2', JSON.stringify(res.data.categories));
-      } else {
-        const next = categories.filter((c) => c !== catName);
-        setCategories(next);
-        localStorage.setItem('smart_developer_categories_v2', JSON.stringify(next));
-      }
-      showNotification('Category deleted.');
+      const next = await firestoreService.deleteCategory(catName);
+      setCategories(next);
+      localStorage.setItem('smart_developer_categories_v2', JSON.stringify(next));
+      showNotification('Category deleted from cloud database.');
       notifyDataChanged();
     } catch (err: any) {
       showNotification('Delete category error: ' + (err.message || 'Error'));
@@ -539,15 +484,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   // -------------------------------------------------------------
   const handleUpdateInquiryStatus = async (id: string, status: CustomInquiry['status'], adminNotes?: string) => {
     try {
-      await safeFetchJson(`/api/admin/inquiries/${id}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({ status, adminNotes })
-      });
-      // Update local state immediately
+      await firestoreService.updateInquiry(id, status, adminNotes);
       setInquiries((prev) =>
         prev.map((item) => (item.id === id ? { ...item, status, adminNotes: adminNotes ?? item.adminNotes } : item))
       );
@@ -559,17 +496,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const handleDeleteInquiry = async (id: string) => {
     if (userRole === 'member') {
-      showNotification('Permission Denied: Team members cannot delete inquiries. Only Owner can delete.');
+      showNotification('Permission Denied: Team members cannot delete inquiries. Only Owners can delete.');
       return;
     }
     if (!window.confirm('Are you sure you want to delete this customer inquiry?')) {
       return;
     }
     try {
-      await safeFetchJson(`/api/admin/inquiries/${id}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      await firestoreService.deleteInquiry(id);
       setInquiries((prev) => prev.filter((i) => i.id !== id));
       showNotification('Inquiry deleted.');
     } catch (err: any) {
@@ -590,18 +524,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }
   ) => {
     try {
-      await safeFetchJson(`/api/admin/orders/${orderNumber}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify(updates)
-      });
+      await firestoreService.updateOrder(orderNumber, updates);
       setOrders((prev) =>
         prev.map((o) => (o.orderNumber === orderNumber ? { ...o, ...updates } : o))
       );
-      showNotification(`Order ${orderNumber} updated.`);
+      showNotification(`Order ${orderNumber} updated in cloud database.`);
     } catch (err: any) {
       showNotification('Update order error: ' + (err.message || 'Error'));
     }
@@ -613,18 +540,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const handleSaveSettings = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await safeFetchJson('/api/admin/settings', {
+      const savedSettings = await firestoreService.savePublicSettings(settings);
+      setSettings(savedSettings);
+      localStorage.setItem('smart_developer_settings_v2', JSON.stringify(savedSettings));
+      safeFetchJson('/api/admin/settings', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify(settings)
-      });
-      localStorage.setItem('smart_developer_settings_v2', JSON.stringify(settings));
-      showNotification('Contact and platform settings saved.');
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(savedSettings)
+      }).catch(() => {});
+      showNotification('Contact and social media settings saved to cloud.');
       notifyDataChanged();
-      fetchAdminData();
     } catch (err: any) {
       showNotification('Settings save error: ' + (err.message || 'Error'));
     }
@@ -665,23 +590,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     if (!editingFaq || !editingFaq.question || !editingFaq.answer) return;
 
     try {
-      const res = await safeFetchJson<{ success: boolean; faq: FAQItem }>('/api/admin/faqs', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify(editingFaq)
-      });
-      const savedFaq: FAQItem = (res.ok && res.data?.faq)
-        ? res.data.faq
-        : {
-            id: editingFaq.id || `faq-${Date.now()}`,
-            question: editingFaq.question,
-            answer: editingFaq.answer,
-            category: editingFaq.category || 'General'
-          };
-
+      const savedFaq = await firestoreService.saveFaq(editingFaq);
       setFaqs((prev) => {
         const idx = prev.findIndex((f) => f.id === savedFaq.id);
         const next = idx !== -1
@@ -690,7 +599,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         localStorage.setItem('smart_developer_faqs_v2', JSON.stringify(next));
         return next;
       });
-      showNotification('FAQ saved.');
+      showNotification('FAQ saved to cloud database.');
       setEditingFaq(null);
       notifyDataChanged();
     } catch (err: any) {
@@ -700,23 +609,20 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const handleDeleteFAQ = async (id: string) => {
     if (userRole === 'member') {
-      showNotification('Permission Denied: Team members cannot delete FAQs. Only Owner can delete.');
+      showNotification('Permission Denied: Team members cannot delete FAQs. Only Owners can delete.');
       return;
     }
     if (!window.confirm('Are you sure you want to delete this FAQ?')) {
       return;
     }
     try {
-      await safeFetchJson(`/api/admin/faqs/${id}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      await firestoreService.deleteFaq(id);
       setFaqs((prev) => {
         const next = prev.filter((f) => f.id !== id);
         localStorage.setItem('smart_developer_faqs_v2', JSON.stringify(next));
         return next;
       });
-      showNotification('FAQ deleted.');
+      showNotification('FAQ deleted from cloud database.');
       notifyDataChanged();
     } catch (err: any) {
       showNotification('Delete FAQ error: ' + (err.message || 'Error'));
@@ -729,7 +635,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const handleAddTeamMember = async (e: React.FormEvent) => {
     e.preventDefault();
     if (userRole === 'member') {
-      showNotification('Permission Denied: Only Owner (smartdeveloper125@gmail.com) can add team members.');
+      showNotification('Permission Denied: Only Owners can add team members.');
       return;
     }
     const clean = newMemberEmail.trim().toLowerCase();
@@ -737,49 +643,23 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       setTeamActionError('Please enter a valid Google email address.');
       return;
     }
+    if (isOwnerEmail(clean)) {
+      setTeamActionError('This email is already an Owner account.');
+      return;
+    }
 
     setTeamLoading(true);
     setTeamActionError(null);
     try {
-      const res = await safeFetchJson<{ success: boolean; member: TeamMember; error?: string; message?: string }>('/api/admin/team', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          email: clean,
-          name: newMemberName.trim()
-        })
-      });
-
-      if (res.ok && res.data?.member) {
-        showNotification(res.data.message || `Access granted to ${clean}`);
-        setNewMemberEmail('');
-        setNewMemberName('');
-        fetchTeamMembers();
-      } else if (!res.isJson || res.status === 404 || res.status === 0) {
-        // Static hosting fallback: store invited team member locally
-        const newMember: TeamMember = {
-          id: `team-${Date.now()}`,
-          email: clean,
-          name: newMemberName.trim() || clean.split('@')[0],
-          role: 'member',
-          addedAt: new Date().toISOString(),
-          addedBy: userEmail
-        };
-        const updated = teamMembers.some((m) => m.email.toLowerCase() === clean)
-          ? teamMembers
-          : [newMember, ...teamMembers];
-        setTeamMembers(updated);
-        localStorage.setItem('smart_developer_team_members', JSON.stringify(updated));
-        setNewMemberEmail('');
-        setNewMemberName('');
-        showNotification(`Access granted to ${clean}`);
-      } else {
-        setTeamActionError(res.error || 'Failed to add team member');
-        showNotification(res.error || 'Failed to add team member');
-      }
+      const newMember = await firestoreService.addTeamMember(clean, newMemberName.trim(), userEmail);
+      const updated = teamMembers.some((m) => m.email.toLowerCase() === clean)
+        ? teamMembers.map((m) => (m.email.toLowerCase() === clean ? newMember : m))
+        : [newMember, ...teamMembers];
+      setTeamMembers(updated);
+      localStorage.setItem('smart_developer_team_members', JSON.stringify(updated));
+      setNewMemberEmail('');
+      setNewMemberName('');
+      showNotification(`Cloud access granted to ${clean}`);
     } catch (err: any) {
       setTeamActionError(err.message || 'Error adding team member');
       showNotification('Error: ' + (err.message || 'Failed'));
@@ -790,7 +670,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const handleRemoveTeamMember = async (id: string, email: string) => {
     if (userRole === 'member') {
-      showNotification('Permission Denied: Only Owner can remove team members.');
+      showNotification('Permission Denied: Only Owners can remove team members.');
       return;
     }
     if (!window.confirm(`Are you sure you want to revoke admin panel access for "${email}"?`)) {
@@ -799,22 +679,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
     setTeamLoading(true);
     try {
-      const res = await safeFetchJson<{ success: boolean; error?: string; message?: string }>(`/api/admin/team/${id}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` }
-      });
-
-      if (res.ok) {
-        showNotification(`Access revoked for ${email}`);
-        fetchTeamMembers();
-      } else if (!res.isJson || res.status === 404 || res.status === 0) {
-        const updated = teamMembers.filter((m) => m.id !== id);
-        setTeamMembers(updated);
-        localStorage.setItem('smart_developer_team_members', JSON.stringify(updated));
-        showNotification(`Access revoked for ${email}`);
-      } else {
-        showNotification(res.error || 'Failed to revoke access');
-      }
+      await firestoreService.removeTeamMember(id);
+      const updated = teamMembers.filter((m) => m.id !== id);
+      setTeamMembers(updated);
+      localStorage.setItem('smart_developer_team_members', JSON.stringify(updated));
+      showNotification(`Access revoked for ${email}`);
     } catch (err: any) {
       showNotification('Error revoking access: ' + (err.message || 'Failed'));
     } finally {
@@ -1955,6 +1824,117 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       <label htmlFor="whatsappEnabled" className="text-xs text-slate-200 cursor-pointer">
                         Enable Floating WhatsApp Button on Public Website
                       </label>
+                    </div>
+
+                    {/* Social Media Links Configuration */}
+                    <div className="pt-4 border-t border-white/10 space-y-4">
+                      <div>
+                        <h4 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                          <Globe className="w-4 h-4 text-blue-400" />
+                          <span>Social Media Links</span>
+                        </h4>
+                        <p className="text-[11px] text-slate-400 pt-1">
+                          Add your official TikTok, Instagram, Facebook, and YouTube profile/channel URLs. Saved links update immediately in the website footer and Contact page.
+                        </p>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="space-y-1.5">
+                          <label className="text-xs font-semibold text-slate-300">TikTok Link</label>
+                          <input
+                            type="text"
+                            placeholder="https://www.tiktok.com/@elvoravision"
+                            value={settings.socialLinks?.tiktok || ''}
+                            onChange={(e) =>
+                              setSettings({
+                                ...settings,
+                                socialLinks: { ...settings.socialLinks, tiktok: e.target.value }
+                              })
+                            }
+                            className="w-full px-3.5 py-2.5 bg-[#141829] border border-white/10 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                          />
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <label className="text-xs font-semibold text-slate-300">Instagram Link</label>
+                          <input
+                            type="text"
+                            placeholder="https://www.instagram.com/elvoravision"
+                            value={settings.socialLinks?.instagram || ''}
+                            onChange={(e) =>
+                              setSettings({
+                                ...settings,
+                                socialLinks: { ...settings.socialLinks, instagram: e.target.value }
+                              })
+                            }
+                            className="w-full px-3.5 py-2.5 bg-[#141829] border border-white/10 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                          />
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <label className="text-xs font-semibold text-slate-300">Facebook Link</label>
+                          <input
+                            type="text"
+                            placeholder="https://www.facebook.com/elvoravision"
+                            value={settings.socialLinks?.facebook || ''}
+                            onChange={(e) =>
+                              setSettings({
+                                ...settings,
+                                socialLinks: { ...settings.socialLinks, facebook: e.target.value }
+                              })
+                            }
+                            className="w-full px-3.5 py-2.5 bg-[#141829] border border-white/10 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                          />
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <label className="text-xs font-semibold text-slate-300">YouTube Link</label>
+                          <input
+                            type="text"
+                            placeholder="https://www.youtube.com/@elvoravision"
+                            value={settings.socialLinks?.youtube || ''}
+                            onChange={(e) =>
+                              setSettings({
+                                ...settings,
+                                socialLinks: { ...settings.socialLinks, youtube: e.target.value }
+                              })
+                            }
+                            className="w-full px-3.5 py-2.5 bg-[#141829] border border-white/10 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                          />
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <label className="text-xs font-semibold text-slate-400">GitHub (Optional)</label>
+                          <input
+                            type="text"
+                            placeholder="https://github.com/username"
+                            value={settings.socialLinks?.github || ''}
+                            onChange={(e) =>
+                              setSettings({
+                                ...settings,
+                                socialLinks: { ...settings.socialLinks, github: e.target.value }
+                              })
+                            }
+                            className="w-full px-3.5 py-2.5 bg-[#141829] border border-white/10 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                          />
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <label className="text-xs font-semibold text-slate-400">LinkedIn (Optional)</label>
+                          <input
+                            type="text"
+                            placeholder="https://www.linkedin.com/in/username"
+                            value={settings.socialLinks?.linkedin || ''}
+                            onChange={(e) =>
+                              setSettings({
+                                ...settings,
+                                socialLinks: { ...settings.socialLinks, linkedin: e.target.value }
+                              })
+                            }
+                            className="w-full px-3.5 py-2.5 bg-[#141829] border border-white/10 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                          />
+                        </div>
+                      </div>
                     </div>
 
                     <div className="pt-4 border-t border-white/10 space-y-3">
