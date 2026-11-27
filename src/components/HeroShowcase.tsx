@@ -1,6 +1,5 @@
 import React from 'react';
 import { ArrowRight, Code, ShieldCheck, Sparkles, Layers, Globe2, Zap } from 'lucide-react';
-import { BrandLogo } from './BrandLogo';
 
 interface HeroShowcaseProps {
   onExplore: () => void;
@@ -20,16 +19,6 @@ export const HeroShowcase: React.FC<HeroShowcaseProps> = ({
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
           {/* Left Column: Typographic Hierarchy */}
           <div className="lg:col-span-6 space-y-4 sm:space-y-6 text-center lg:text-left">
-            {/* Prominent Brand Emblem + Minimalist kicker */}
-            <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4">
-              <BrandLogo size="lg" />
-              <div className="inline-flex items-center gap-2 text-[11px] sm:text-xs font-semibold text-blue-400 bg-blue-950/40 border border-blue-800/40 px-3.5 py-1.5 rounded-full">
-                <span>Full-Stack Web Engineering</span>
-                <span aria-hidden="true">·</span>
-                <span>Global Client Deliveries</span>
-              </div>
-            </div>
-
             {/* Main Heading with clamp fluid scaling */}
             <h1
               className="font-extrabold tracking-tight text-white leading-[1.15] text-balance text-3xl sm:text-4xl md:text-5xl lg:text-6xl"
